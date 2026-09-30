@@ -205,6 +205,7 @@ export default function Dashboard() {
         <div className="card"><h4>Total Leads</h4><b>{d.totalLeads}</b></div>
         <div className="card"><h4>Conversion</h4><b>{d.conversionRate}%</b></div>
         <div className="card"><h4>Students</h4><b>{d.totalStudents}</b></div>
+        <div className="card"><h4>Trainers</h4><b>{d.totalTrainers}</b></div>
         <div className="card"><h4>Active Batches</h4><b>{d.activeBatches}</b></div>
         <div className="card"><h4>Revenue</h4><b>{inr(d.revenue)}</b></div>
         <div className="card"><h4>Collected</h4><b>{inr(d.collected)}</b></div>

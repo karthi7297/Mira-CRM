@@ -5,10 +5,12 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MyLearning from './pages/MyLearning';
 import { Leads, LeadDetail, Customers, Customer360 } from './pages/CRM';
-import { Programs, Batches, BatchDetail, Students, Attendance } from './pages/Training';
+import { Programs, Batches, BatchDetail, Students, Attendance, TrainerLeaveRequests, StudentBulkAdd, Trainers } from './pages/Training';
 import { Quotations, Invoices, InvoiceDetail, Payments, Expenses, Reports, TrainerFinance } from './pages/Finance';
 import { Enquire, Verify } from './pages/Public';
 import { Collections, Certificates } from './pages/Showcase';
+import LeaveApproval from './pages/LeaveApproval';
+import AttendanceDetails from './pages/AttendanceDetails';
 
 function College() {
   const { user } = useAuth();
@@ -40,10 +42,14 @@ export default function App() {
           <Route path="/customers/:id" element={<Guard path="/customers"><Customer360 /></Guard>} />
           <Route path="/college" element={<Guard path="/college"><College /></Guard>} />
           <Route path="/programs" element={<Guard path="/programs"><Programs /></Guard>} />
+          <Route path="/trainers" element={<Guard path="/trainers"><Trainers /></Guard>} />
           <Route path="/batches" element={<Guard path="/batches"><Batches /></Guard>} />
           <Route path="/batches/:id" element={<Guard path="/batches"><BatchDetail /></Guard>} />
           <Route path="/students" element={<Guard path="/students"><Students /></Guard>} />
+          <Route path="/attendance-details" element={<Guard path="/attendance-details"><AttendanceDetails /></Guard>} />
           <Route path="/attendance" element={<Guard path="/attendance"><Attendance /></Guard>} />
+          <Route path="/leave-approval" element={<Guard path="/leave-approval"><LeaveApproval /></Guard>} />
+          <Route path="/my-leave" element={<Guard path="/my-leave"><TrainerLeaveRequests /></Guard>} />
           <Route path="/my-finance" element={<Guard path="/my-finance"><TrainerFinance /></Guard>} />
           <Route path="/quotations" element={<Guard path="/quotations"><Quotations /></Guard>} />
           <Route path="/invoices" element={<Guard path="/invoices"><Invoices /></Guard>} />

@@ -70,15 +70,31 @@ function createApp() {
   // Rampex + institutions have hundreds of students and get aggregates only
   // (dashboard, Customer 360) — writes are trainer-only and 403 everyone else.
   app.get('/api/students', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listStudents(req.scope))));
-  app.post('/api/students', requireRole('trainer'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.listStudents(req.scope, { batch_id: req.query.batch_id || '', search: req.query.search || '' }))));
+  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createStudent(req.scope, req.body || {}))));
-  app.post('/api/enrollments', requireRole('trainer'), asyncHandler(async (req, res) =>
+  app.post('/api/students/bulk', requireRole('trainer', 'institution', 'organization'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.bulkCreateStudents(req.scope, req.body || {}))));
+  app.patch('/api/students/:id', requireRole('trainer', 'institution', 'organization'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.updateStudent(req.scope, req.params.id, req.body || {}))));
+  app.delete('/api/students/:id', requireRole('trainer', 'institution', 'organization'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.deleteStudent(req.scope, req.params.id))));
+  app.post('/api/enrollments', requireRole('trainer', 'institution', 'organization'), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createEnrollment(req.scope, req.body || {}))));
   app.get('/api/attendance', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listAttendance(req.scope, { batch_id: req.query.batch_id || '', date: req.query.date || '' }))));
+  app.get('/api/attendance/summary', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.attendanceSummary(req.scope))));
   app.post('/api/attendance', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.saveAttendance(req.scope, req.body || {}))));
+
+  // ---------- Leave Requests (FLOW for Trainer / Org Leave Approval) ----------
+  app.get('/api/leave-requests', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.listLeaveRequests())));
+  app.post('/api/leave-requests', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.createLeaveRequest(req.body || {}))));
+  app.patch('/api/leave-requests/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.updateLeaveRequest(req.params.id, req.body?.action || req.body?.status))));
 
   // ---------- Learning support ----------
   app.get('/api/sessions', requireAuth, asyncHandler(async (req, res) =>
@@ -115,6 +131,8 @@ function createApp() {
     ok(res, await financeService.listQuotations(req.scope))));
   app.post('/api/quotations', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await financeService.createQuotation(req.body || {}))));
+  app.patch('/api/quotations/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await financeService.updateQuotation(req.scope, req.params.id, req.body || {}))));
   app.get('/api/invoices', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await financeService.listInvoices(req.scope))));
   app.get('/api/invoices/:id', requireAuth, asyncHandler(async (req, res) =>
@@ -129,6 +147,8 @@ function createApp() {
     ok(res, await financeService.listExpenses())));
   app.post('/api/expenses', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await financeService.createExpense(req.scope, req.body || {}))));
+  app.patch('/api/expenses/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await financeService.updateExpense(req.scope, req.params.id, req.body || {}))));
 
   // ---------- 1-Click Quotation to Invoice Conversion ----------
   app.post('/api/quotations/:id/convert-invoice', requireOrg, asyncHandler(async (req, res) =>

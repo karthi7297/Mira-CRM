@@ -242,7 +242,25 @@ async function convertQuotationToInvoice(scope, quotationId) {
   });
 }
 
+async function updateExpense(scope, id, body = {}) {
+  if (scope.role !== 'organization') throw forbidden('Organization access only');
+  const exp = await db.get('SELECT * FROM expenses WHERE id = ?', [id]);
+  if (!exp) throw notFound('Expense not found');
+  const status = body.status || (body.action === 'approve' ? 'APPROVED' : body.action === 'pay' ? 'PAID' : exp.status);
+  await db.run('UPDATE expenses SET status = ? WHERE id = ?', [status, id]);
+  return db.get('SELECT * FROM expenses WHERE id = ?', [id]);
+}
+
+async function updateQuotation(scope, id, body = {}) {
+  const quo = await db.get('SELECT * FROM quotations WHERE id = ?', [id]);
+  if (!quo) throw notFound('Quotation not found');
+  if (scope.role === 'institution' && quo.customer_id !== scope.customer_id) throw forbidden('Not authorized');
+  const status = body.status || (body.action === 'accept' ? 'ACCEPTED' : body.action === 'reject' ? 'REJECTED' : quo.status);
+  await db.run('UPDATE quotations SET status = ? WHERE id = ?', [status, id]);
+  return db.get('SELECT * FROM quotations WHERE id = ?', [id]);
+}
+
 module.exports = {
-  listQuotations, createQuotation, convertQuotationToInvoice, listInvoices, getInvoice, createInvoice,
-  listPayments, createPayment, listExpenses, createExpense, trainerFinance,
+  listQuotations, createQuotation, updateQuotation, convertQuotationToInvoice, listInvoices, getInvoice, createInvoice,
+  listPayments, createPayment, listExpenses, createExpense, updateExpense, trainerFinance,
 };

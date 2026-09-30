@@ -201,6 +201,7 @@ async function organizationDashboard() {
   const converted = await db.count(`SELECT COUNT(*) FROM leads WHERE status = 'CONVERTED'`);
   const activeBatches = await db.count(`SELECT COUNT(*) FROM batches WHERE status = 'ACTIVE'`);
   const totalStudents = await db.count('SELECT COUNT(*) FROM students');
+  const totalTrainers = await db.count('SELECT COUNT(*) FROM trainers');
   const revenue = round2(await db.count('SELECT COALESCE(SUM(total),0) FROM invoices'));
   const collected = round2(await db.count('SELECT COALESCE(SUM(amount),0) FROM payments'));
   const expenses = round2(await db.count('SELECT COALESCE(SUM(amount),0) FROM expenses'));
@@ -256,7 +257,7 @@ async function organizationDashboard() {
     role: 'organization',
     totalLeads,
     conversionRate: totalLeads ? Math.round((converted / totalLeads) * 100) : 0,
-    activeBatches, totalStudents, revenue, collected, outstanding, expenses,
+    activeBatches, totalStudents, totalTrainers, revenue, collected, outstanding, expenses,
     net: round2(collected - expenses),
     byStatus, recentPayments, outstandingInvoices, batches,
     institutions: instEnriched,
