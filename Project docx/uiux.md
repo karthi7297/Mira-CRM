@@ -31,15 +31,16 @@ User feeling: "This is software an organization could actually use."
 Main: Dashboard, Leads, Institutions, My College, My Learning, Programs, Batches, My Students, Attendance, Quotations, Invoices, Payments, Collections, Certificates, Expenses, Reports. Bottom: Profile, Logout. Items filter by role — the sidebar never shows modules the role cannot open.
 
 Role map (Rampex 4-role model — the ONLY logins):
-- Organization (Rampex): everything **except student management** — Dashboard, Leads, Institutions, Programs, Batches, Quotations, Invoices, Payments, Collections, Certificates, Expenses, Reports
+- Organization (Rampex): everything **except student management** — Dashboard, Leads, Institutions, Programs, Batches, **Attendance**, Quotations, Invoices, Payments, Collections, Certificates, Expenses, Reports
 - Institution (college / Rampex Direct): Dashboard (own college), My College, Batches, Quotations, Invoices, Payments, Collections, Certificates
 - Trainer (Rampex staff): Dashboard (my batches), Programs, Batches, **My Students**, Attendance, Certificates, My Finance
 - Student: My Learning only
 
-> **Student management is trainer-only.** `My Students` and `Attendance` appear for the
-> Trainer role and for nobody else. Organization and Institution never see a student list,
-> an enrol form or a per-student report — at 100s of students that is not their workflow.
-> They read aggregate student counts on the dashboard and a read-only roster inside a batch.
+> **Student management is trainer-only.** `My Students` appears for the Trainer role and
+> nobody else. `Attendance` appears for the Trainer and for Organization — Rampex can mark
+> any batch as a fallback. Organization and Institution never see a student list, an enrol
+> form or a per-student report — at 100s of students that is not their workflow. They read
+> aggregate student counts on the dashboard and a read-only roster inside a batch.
 > Direct URL access to `/students` renders "Access Denied" for them, and the API returns 403.
 
 Top bar always shows the active role badge (e.g. `INSTITUTION · ABC College Office`). Unauthorized direct URLs render "Access Denied".
@@ -98,9 +99,9 @@ their first student.
 Organization and Institution have no equivalent screen. They see a student *count* on their
 dashboard and a read-only roster inside a batch.
 
-## 11. Attendance (assigned Trainer only)
+## 11. Attendance (assigned Trainer, or Rampex as fallback)
 
-Fast table for date: Student | Status (Present/Absent/Late). [Mark All Present] + [Save Attendance]. The batch selector lists only this trainer's own batches, and the date defaults to today.
+Fast table for date: Student | Status (Present/Absent/Late). [Mark All Present] + [Save Attendance]. The batch selector lists the trainer's own batches (Rampex sees every batch), and the date defaults to today. The institution has no Attendance screen.
 
 ## 11b. My Learning (Student only — self level)
 

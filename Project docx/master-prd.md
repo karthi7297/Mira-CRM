@@ -90,7 +90,8 @@ finance (total fees billed to me, paid, outstanding student dues).
 **ORGANIZATION (platform level):** login · dashboard + overall insights across ALL
 institutions · CRM (leads incl. automated capture, follow-ups/conversion, quotation &
 proposal, program/batch setup) · training (institution performance metrics, per-batch
-roster read-only) · finance (all institutions, trainers, all expenses).
+roster read-only, attendance marking as a fallback for any batch) · finance (all
+institutions, trainers, all expenses).
 **No student management** — student records stay with the delivering trainer; Rampex
 reads aggregate student figures only.
 
@@ -162,9 +163,11 @@ UNPAID | PARTIALLY_PAID | PAID | OVERDUE
 
 ### Attendance
 Each record = Student + Batch + Session/Date. States: PRESENT | ABSENT | LATE.
-Marked by the trainer delivering that batch — attendance is per-student work, so it
-follows student management. Rampex and the institution read attendance as an aggregate
-(batch attendance %), never record by record.
+Marked by the trainer delivering that batch, **or by Rampex (Organization) as a fallback** —
+a batch must never go unrecorded if the delivering trainer is unavailable. Attendance is
+per-student work, so the delivering trainer is the default marker and owns the record; Rampex
+holds the override. The institution reads attendance as an aggregate (batch attendance %),
+never record by record, and cannot mark it at all.
 
 ## 9. Dashboard
 

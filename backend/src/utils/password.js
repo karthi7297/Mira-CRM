@@ -9,7 +9,11 @@ const crypto = require('crypto');
 /** Pepper mixed into every digest. */
 const PEPPER = 'mira';
 
-/** Pepper used before the app was renamed — kept only so existing rows still verify. */
+/**
+ * Pepper used before the app was renamed. KEEP THIS VALUE AS-IS: it is only
+ * here so hashes written under the old name still verify, letting existing
+ * logins work without a forced password reset. Changing it breaks those rows.
+ */
 const LEGACY_PEPPER = 'edunexus';
 
 const digest = (pepper, salt, plain) =>

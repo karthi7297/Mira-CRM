@@ -186,6 +186,11 @@ async function saveScore(scope, body = {}) {
 }
 
 // ---------- Student report (FLOW T: attendance + scores + interests) ----------
+/**
+ * Per-student drill-down. Visible to the trainer who delivers the student's
+ * batch, or to the student themselves. Org/institution see aggregates only —
+ * they never manage students name-by-name (master-prd §3).
+ */
 async function studentReport(scope, studentId) {
   const st = await db.get(
     `SELECT s.*, c.name AS customer_name FROM students s
@@ -198,16 +203,19 @@ async function studentReport(scope, studentId) {
     [studentId]
   )).map((r) => r.id);
 
-  if (scope.role === 'student' && scope.student_id !== st.id) throw forbidden('Not authorized');
-  if (scope.role === 'trainer' || scope.role === 'institution') {
+  if (scope.role === 'student') {
+    if (scope.student_id !== st.id) throw forbidden('Not authorized');
+  } else if (scope.role === 'trainer') {
     const canSeeAny = await Promise.all(batchIds.map((b) => canSeeBatch(db, scope, b)));
     if (!batchIds.length || !canSeeAny.some(Boolean)) throw forbidden('Not authorized');
+  } else {
+    throw forbidden('Student reports are visible to the assigned trainer or the student');
   }
 
-  // Institution logins never see interests (db-prd §3b read rule)
-  const interests = scope.role === 'institution'
-    ? []
-    : await db.query('SELECT * FROM interests WHERE student_id = ? ORDER BY created_at DESC, id DESC', [studentId]);
+  const interests = await db.query(
+    'SELECT * FROM interests WHERE student_id = ? ORDER BY created_at DESC, id DESC',
+    [studentId]
+  );
 
   return {
     ...st,

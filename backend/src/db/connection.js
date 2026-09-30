@@ -39,13 +39,23 @@ const count = async (sql, params = []) => {
 
 /** fn receives the same facade (query/get/run/count); errors roll back. */
 async function transaction(fn) {
-  const tx = await impl.begin();
+  const rawTx = await impl.begin();
+  const txGet = async (sql, params = []) => (await rawTx.query(sql, params))[0];
+  const txCount = async (sql, params = []) => {
+    const row = await txGet(sql, params);
+    return Number(Object.values(row || {})[0] || 0);
+  };
+  const tx = {
+    ...rawTx,
+    get: txGet,
+    count: txCount,
+  };
   try {
     const out = await fn(tx);
-    await tx.commit();
+    await rawTx.commit();
     return out;
   } catch (err) {
-    await tx.rollback().catch(() => {});
+    await rawTx.rollback().catch(() => {});
     throw err;
   }
 }

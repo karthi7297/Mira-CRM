@@ -32,8 +32,12 @@ just hidden in the UI:
 | `GET /api/students` | 403 | 403 | own roster | self only |
 | `POST /api/students` | 403 | 403 | 200 (own batch only, else 403) | 403 |
 | `POST /api/enrollments` | 403 | 403 | 200 (own batch only) | 403 |
-| `POST /api/attendance` | 403 | 403 | 200 (own batch only) | 403 |
+| `POST /api/attendance` | 200 (fallback, any batch) | 403 | 200 (own batch only, else 403) | 403 |
 | `GET /api/students/:id/report` | 403 | 403 | own students | self only |
+
+Attendance is the one exception to "writes are trainer-only": the delivering trainer marks
+their own batches, and Rampex (Organization) can mark any batch as a fallback so a batch is
+never left unrecorded. The institution and the student never mark attendance.
 
 `GET /api/customers/:id` returns `students: []` to an INSTITUTION while keeping the
 `summary.students` count, so a college still sees *how many* students it has but never the
@@ -193,7 +197,7 @@ Table attendance {
   enrollment_id bigint [not null, ref: > enrollments.enrollment_id]
   session_id bigint [not null, ref: > training_sessions.session_id]
   status enum('PRESENT','ABSENT','LATE','EXCUSED') [note: 'MVP uses PRESENT/ABSENT/LATE per master-prd §8; EXCUSED reserved']
-  marked_by bigint [ref: > users.user_id, note: 'the assigned TRAINER only — attendance is per-student work, so it follows student ownership']
+  marked_by bigint [ref: > users.user_id, note: 'the assigned TRAINER by default, or Rampex (Organization) as a fallback — attendance follows student ownership, so the delivering trainer is the default marker']
   marked_at datetime
 }
 

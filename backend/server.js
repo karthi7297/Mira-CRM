@@ -14,7 +14,7 @@ const { createApp } = require('./src/app');
     await initialize(db); // schema + demo data (db-prd §7)
     const app = createApp();
     app.listen(config.port, () =>
-      console.log(`EduNexus API on http://localhost:${config.port} (driver: ${db.driver})`)
+      console.log(`Mira API on http://localhost:${config.port} (driver: ${db.driver})`)
     );
   } catch (err) {
     console.error('[boot] failed:', err.message);

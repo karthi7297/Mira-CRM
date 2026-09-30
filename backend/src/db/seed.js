@@ -36,8 +36,9 @@ async function insertDocument(db, table, { id, customer_id, program, items, disc
     `INSERT INTO ${table} (id,customer_id,program,subtotal,discount,tax,total,status) VALUES (?,?,?,?,?,?,?,?)`,
     [id, customer_id, program || null, subtotal, disc, tax, total, status]
   );
+  // Schema names the child tables in the singular: quotation_items / invoice_items.
   const singular = table === 'quotations' ? 'quotation' : 'invoice';
-  const stmt = `INSERT INTO ${table}_items (${singular}_id,description,qty,rate,amount) VALUES (?,?,?,?,?)`;
+  const stmt = `INSERT INTO ${singular}_items (${singular}_id,description,qty,rate,amount) VALUES (?,?,?,?,?)`;
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     await db.run(stmt, [id, it.description || 'Training', it.qty || 1, it.rate || 0, lines[i]]);
@@ -60,7 +61,21 @@ async function applySchema(db) {
 }
 
 async function seedDemoData(db) {
-  // Leads + customers first: users.customer_id FKs into customers (db-prd §1)
+  // Circular FK chain: leads.assigned_to → users(id), users.customer_id → customers(id),
+  // customers.lead_id → leads(id). No single ordering satisfies all three, so insert the
+  // users first with a NULL customer_id, then back-fill once the customers exist.
+  const USERS = {
+    org: ['U-001', 'Rampex Admin', 'org@rampex.demo', null, 'org123', 'ORGANIZATION', null],
+    abc: ['U-002', 'ABC College Office', 'abc@college.edu', null, 'abc123', 'INSTITUTION', 'CUST-001'],
+    direct: ['U-003', 'Rampex Direct Office', 'direct@rampex.demo', null, 'direct123', 'INSTITUTION', 'CUST-003'],
+    trainer: ['U-004', 'Arun Kumar', 'trainer@rampex.demo', null, 'trainer123', 'TRAINER', null],
+    student: ['U-005', 'Arun V', 'arun@student.edu', null, 'arun123', 'STUDENT', null],
+  };
+  for (const [id, name, email, phone, pw, role] of Object.values(USERS)) {
+    await db.run(insertUser, [id, name, email, phone, hashPassword(pw), role, null]);
+  }
+
+  // Leads + follow-ups (assigned_to → users, which now exist)
   const lStmt = [
     ['LEAD-001', 'U-001', 'INSTITUTION', 'ABC College', 'Dr. Meena', 'meena@abccollege.edu',
       '98410-12345', 'AI/ML training for 3rd year', 'AI & Machine Learning', 100, 500000, 'Referral', 'Sales Exec', 'QUALIFIED'],
@@ -88,17 +103,9 @@ async function seedDemoData(db) {
   await db.run(insertCustomer, ['CUST-003', null, 'Rampex Direct', 'Admissions Desk', 'admissions@rampex.demo', '98410-00000', 'Direct']);
   await db.run(`UPDATE leads SET status='CONVERTED' WHERE id IN ('LEAD-001','LEAD-002')`);
 
-  // Users reference customers(id); trainers reference users(id)
-  const USERS = {
-    org: ['U-001', 'Rampex Admin', 'org@rampex.demo', null, 'org123', 'ORGANIZATION', null],
-    abc: ['U-002', 'ABC College Office', 'abc@college.edu', null, 'abc123', 'INSTITUTION', 'CUST-001'],
-    direct: ['U-003', 'Rampex Direct Office', 'direct@rampex.demo', null, 'direct123', 'INSTITUTION', 'CUST-003'],
-    trainer: ['U-004', 'Arun Kumar', 'trainer@rampex.demo', null, 'trainer123', 'TRAINER', null],
-    student: ['U-005', 'Arun V', 'arun@student.edu', null, 'arun123', 'STUDENT', null],
-  };
-  for (const [id, name, email, phone, pw, role, cust] of Object.values(USERS)) {
-    await db.run(insertUser, [id, name, email, phone, hashPassword(pw), role, cust]);
-  }
+  // Customers exist now — link the institution logins to their college (db-prd §1)
+  await db.run(`UPDATE users SET customer_id = 'CUST-001' WHERE id = 'U-002'`);
+  await db.run(`UPDATE users SET customer_id = 'CUST-003' WHERE id = 'U-003'`);
 
   // Rampex staff trainers; TR-001 linked to the trainer login (db-prd §3)
   await db.run(insertTrainer, ['TR-001', 'U-004', 'Arun Kumar', 'AI/ML', 'arun@rampex.demo', '98400-11111']);

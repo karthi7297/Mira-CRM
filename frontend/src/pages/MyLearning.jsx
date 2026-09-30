@@ -139,6 +139,58 @@ export default function MyLearning() {
         </div>
       )}
 
+      {tab === 'Certificates' && (
+        <div>
+          {certs.length > 0 ? (
+            certs.map((c) => (
+              <div key={c.id} className="cert-paper" style={{ maxWidth: 640, margin: '0 auto 20px', borderTop: '6px solid #16a34a' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h1>RAMPEX CERTIFICATE OF COMPLETION</h1>
+                  <span className="chip PAID" style={{ fontSize: 12 }}>AUTHENTIC ✓</span>
+                </div>
+                <p style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>This certifies that</p>
+                <div className="who" style={{ fontSize: 24, margin: '8px 0' }}>{d.student?.name}</div>
+                <p style={{ fontSize: 14 }}>
+                  has successfully fulfilled course requirements for <b>{c.program_name || 'Program'}</b> with batch <b>{c.batch_id}</b>.
+                </p>
+                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, margin: '12px 0', fontSize: 13 }}>
+                  Attendance: <b>{c.attendance_pct}%</b> · Assessment Score: <b>{c.avg_score ?? '—'}{c.avg_score != null && '%'}</b> · Issued: {String(c.issued_on || '').slice(0, 10)}
+                  <br />
+                  Verification Code: <b>{c.certificate_no}</b>
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }} className="no-print">
+                  <button className="btn ghost" onClick={() => window.print()}>Print Certificate</button>
+                  <a href={`/verify`} target="_blank" rel="noreferrer" className="btn" style={{ textDecoration: 'none' }}>
+                    Verify Credential →
+                  </a>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="card">
+              <h4>Certificate Eligibility</h4>
+              <p className="meta">
+                Rampex completion certificates are issued when batch attendance reaches at least <b>75%</b>.
+              </p>
+              <div style={{ margin: '14px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                  <span>Current Attendance</span>
+                  <b>{d.attendancePct}% / 75%</b>
+                </div>
+                <div className="bar lg" style={{ height: 10 }}>
+                  <i style={{ width: `${Math.min(100, (d.attendancePct / 75) * 100)}%`, background: d.attendancePct >= 75 ? '#16a34a' : '#2563eb' }} />
+                </div>
+              </div>
+              <p className="meta" style={{ margin: 0 }}>
+                {d.attendancePct >= 75
+                  ? '✓ You have met attendance eligibility! Your Rampex instructor will issue your certificate upon batch completion.'
+                  : `Keep attending upcoming sessions to unlock your verifiable certificate.`}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === 'Interests' && (
         <div>
           <div className="card">
@@ -171,4 +223,9 @@ export default function MyLearning() {
         </div>
       )}
 
-      <p className="met
+      <p className="meta" style={{ marginTop: 22 }}>
+        Training delivered by Rampex · {user?.email}
+      </p>
+    </div>
+  );
+}

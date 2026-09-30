@@ -1,5 +1,5 @@
 -- ============================================================================
--- EduNexus — MySQL 8 schema (db-prd.md blueprint, production target)
+-- Mira — MySQL 8 schema (db-prd.md blueprint, production target)
 --
 -- Mirrors backend/src/db/schema.js (the SQLite dev port) column-for-column:
 --   - surrogate BIGINT AUTO_INCREMENT pks + unique VARCHAR business codes (`id`)

@@ -19,8 +19,8 @@ export const NAV = [
   // manage students directly — at their scale they read the aggregate figures
   // on their dashboard and the per-batch roster inside Batches.
   { to: '/students', label: 'My Students', roles: ['trainer'] },
-  // Attendance is per-student work, so it follows student management → trainer only.
-  { to: '/attendance', label: 'Attendance', roles: ['trainer'] },
+  // Attendance stays available to Rampex as a fallback, plus the delivering trainer.
+  { to: '/attendance', label: 'Attendance', roles: ['organization', 'trainer'] },
   { to: '/my-finance', label: 'My Finance', roles: ['trainer'] },
   { to: '/quotations', label: 'Quotations', roles: ['organization', 'institution'] },
   { to: '/invoices', label: 'Invoices', roles: ['organization', 'institution'] },

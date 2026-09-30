@@ -40,9 +40,9 @@ The trainer is blocked from batches not assigned to them (403). Organization and
 Institution have no enrol form and no student list — `POST /api/students` returns 403
 for both. This is the single entry point for student records.
 
-## FLOW I — ATTENDANCE (assigned Trainer only)
+## FLOW I — ATTENDANCE (assigned Trainer, or Rampex as fallback)
 
-Batch → Attendance → select date → load enrolled → mark PRESENT/ABSENT/LATE → save → % recalculated. Trainer is blocked from batches not assigned to them (403).
+Batch → Attendance → select date → load enrolled → mark PRESENT/ABSENT/LATE → save → % recalculated. The delivering trainer marks their own batches; Rampex can mark any batch as a fallback. Trainers are blocked from batches not assigned to them (403), and the institution has no attendance marking at all.
 
 ## FLOW J — QUOTATION (Organization creates; Institution views own)
 Customer → Finance → Quotation → select customer → add items → subtotal − discount + tax = total → save. Optional: Accepted → Create Invoice.
@@ -78,8 +78,9 @@ EVERYTHING (only role that creates/converts)
 ```text
 Dashboard (own college) → My College 360 → Batches → Quotations → Invoices → Payments (view + pay)
 ```
-No Students and no Attendance module. Students are managed by the trainer delivering the
-batch; the college sees a student count on its dashboard and a read-only roster inside a batch.
+No Students module and no attendance marking. Students are managed by the trainer delivering
+the batch; the college sees a student count on its dashboard, a read-only roster inside a
+batch, and attendance only as an aggregate (batch attendance %).
 
 ## Trainer (Rampex staff — scoped to assigned trainer_id)
 ```text
@@ -151,7 +152,8 @@ POST/GET /api/leads, GET/PATCH /api/leads/:id,
 POST /api/leads/:id/followups, POST /api/leads/:id/convert,
 GET /api/customers, GET /api/customers/:id,
 POST /api/programs, POST /api/batches,
-POST /api/students, POST /api/enrollments, POST /api/attendance,   <- trainer-only, 403 for org + institution
+POST /api/students, POST /api/enrollments,                             <- trainer-only, 403 for org + institution
+POST /api/attendance,                                                  <- assigned trainer OR Rampex fallback; 403 for institution
 POST /api/quotations, POST /api/invoices, POST /api/payments,
 POST /api/expenses, GET /api/dashboard
 ```

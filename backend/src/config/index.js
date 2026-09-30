@@ -4,7 +4,7 @@ const path = require('path');
  * Central configuration. Env-overridable so the same code runs anywhere.
  *
  * DB driver (db-prd §12 / §9):
- *   DB_DRIVER=sqlite (default, zero-setup dev — backend/edunexus.db)
+ *   DB_DRIVER=sqlite (default, zero-setup dev — backend/mira.db)
  *   DB_DRIVER=mysql  (production target — MySQL 8, see backend/.env.example)
  * Both dialects share the exact same column layout, so every service query
  * is dialect-agnostic (only connection + DDL differ).
@@ -21,9 +21,9 @@ module.exports = {
     mysql: {
       host: process.env.MYSQL_HOST || '127.0.0.1',
       port: Number(process.env.MYSQL_PORT || 3306),
-      user: process.env.MYSQL_USER || 'edunexus',
-      password: process.env.MYSQL_PASSWORD || 'edunexus',
-      database: process.env.MYSQL_DATABASE || 'edunexus',
+      user: process.env.MYSQL_USER || 'mira',
+      password: process.env.MYSQL_PASSWORD || 'mira',
+      database: process.env.MYSQL_DATABASE || 'mira',
     },
   },
 

@@ -65,12 +65,16 @@ function createApp() {
     ok(res, await trainingService.getBatch(req.scope, req.params.id))));
   app.post('/api/batches', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.createBatch(req.body || {}))));
+  // STUDENT MANAGEMENT IS THE TRAINER'S JOB (master-prd §3). A trainer owns a
+  // short personal roster, so name-by-name CRUD is the right granularity there.
+  // Rampex + institutions have hundreds of students and get aggregates only
+  // (dashboard, Customer 360) — writes are trainer-only and 403 everyone else.
   app.get('/api/students', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listStudents(req.scope))));
-  app.post('/api/students', requireOrg, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.createStudent(req.body || {}))));
-  app.post('/api/enrollments', requireOrg, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.createEnrollment(req.body || {}))));
+  app.post('/api/students', requireRole('trainer'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.createStudent(req.scope, req.body || {}))));
+  app.post('/api/enrollments', requireRole('trainer'), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.createEnrollment(req.scope, req.body || {}))));
   app.get('/api/attendance', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listAttendance(req.scope, { batch_id: req.query.batch_id || '', date: req.query.date || '' }))));
   app.post('/api/attendance', requireAuth, asyncHandler(async (req, res) =>

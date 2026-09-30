@@ -1,9 +1,11 @@
 /**
  * Training domain: programs, trainers, batches, students, enrollments, attendance.
  * Scope rules (db-prd §0/§3): trainers see only assigned batches (dev port:
- * batches.trainer_id); students see only their enrollments; mutations are
- * ORGANIZATION-only except attendance marking by the assigned trainer (FLOW I).
- * Async facade throughout.
+ * batches.trainer_id); students see only their enrollments. STUDENT MANAGEMENT
+ * IS THE TRAINER'S JOB — students belong to the trainer who delivers their
+ * batch, so org/institution never get a name-by-name roster (they see counts on
+ * the dashboard and Customer 360 instead). Attendance may be marked by the
+ * assigned trainer, or by Rampex as a fallback (FLOW I). Async facade throughout.
  */
 const db = require('../db');
 const { badRequest, conflict, forbidden, notFound } = require('../utils/http');
@@ -97,41 +99,50 @@ async function createBatch(body = {}) {
 }
 
 // ---------- Students ----------
+/**
+ * Roster read. The trainer sees only their own students (short roster); a
+ * student sees only themselves. Rampex and institutions deliberately get a 403
+ * here — they manage hundreds of students, so they work from aggregate counts
+ * (dashboard KPIs, Customer 360 summary), never a name-by-name list.
+ */
 async function listStudents(scope) {
-  if (scope.role === 'organization') {
-    return db.query('SELECT * FROM students ORDER BY student_key DESC LIMIT 200');
-  }
-  if (scope.role === 'institution') {
-    return db.query(
-      'SELECT * FROM students WHERE customer_id = ? ORDER BY student_key DESC LIMIT 200',
-      [scope.customer_id]
-    );
-  }
   if (scope.role === 'student') {
     return db.query('SELECT * FROM students WHERE id = ?', [scope.student_id]);
   }
-  if (scope.role === 'trainer') {
-    const ids = (await visibleBatchIds(db, scope)) || [];
-    if (!ids.length) return [];
-    const ph = ids.map(() => '?').join(',');
-    return db.query(
-      `SELECT DISTINCT s.* FROM students s
-        JOIN enrollments e ON e.student_id = s.id
-       WHERE e.batch_id IN (${ph}) ORDER BY s.id`,
-      ids
-    );
+  if (scope.role !== 'trainer') {
+    throw forbidden('Student management belongs to the trainer who delivers the batch');
   }
-  return [];
+  const ids = (await visibleBatchIds(db, scope)) || [];
+  if (!ids.length) return [];
+  const ph = ids.map(() => '?').join(',');
+  return db.query(
+    `SELECT DISTINCT s.* FROM students s
+      JOIN enrollments e ON e.student_id = s.id
+     WHERE e.batch_id IN (${ph}) ORDER BY s.id`,
+    ids
+  );
 }
 
-/** Create student + optional enrollment (FLOW H — the enroll form on batch page). */
-async function createStudent(body = {}) {
+/**
+ * Create student + optional enrollment (FLOW H — the enroll form on batch page).
+ * TRAINER ONLY, and only into a batch that trainer delivers: a trainer owns a
+ * short personal roster, which is the one place name-by-name entry makes sense.
+ * Org/institution never reach this route (403 at the middleware).
+ */
+async function createStudent(scope, body = {}) {
   requireFields(body, ['name']);
+  if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer can add students');
   return db.transaction(async (tx) => {
     let customerId = str(body.customer_id) || null;
     if (body.batch_id) {
-      const batch = await tx.get('SELECT customer_id, capacity FROM batches WHERE id = ?', [str(body.batch_id)]);
+      const batch = await tx.get(
+        'SELECT customer_id, capacity, trainer_id FROM batches WHERE id = ?',
+        [str(body.batch_id)]
+      );
       if (!batch) throw badRequest('Unknown batch_id');
+      if (batch.trainer_id !== scope.trainer_id) {
+        throw forbidden('You can only add students to your own batches');
+      }
       customerId = customerId || batch.customer_id;
       const count = await tx.count('SELECT COUNT(*) FROM enrollments WHERE batch_id = ?', [str(body.batch_id)]);
       if (count >= batch.capacity) throw conflict('Batch is at full capacity');
@@ -150,12 +161,23 @@ async function createStudent(body = {}) {
 }
 
 // ---------- Enrollments ----------
-async function createEnrollment(body = {}) {
+/**
+ * Enrol an existing student into a batch (FLOW H). TRAINER ONLY, own batches
+ * only — org/institution never manage the roster directly.
+ */
+async function createEnrollment(scope, body = {}) {
   requireFields(body, ['student_id', 'batch_id']);
+  if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer can enrol students');
   const student = await db.get('SELECT customer_id FROM students WHERE id = ?', [str(body.student_id)]);
   if (!student) throw badRequest('Unknown student_id');
-  const batch = await db.get('SELECT customer_id, capacity FROM batches WHERE id = ?', [str(body.batch_id)]);
+  const batch = await db.get(
+    'SELECT customer_id, capacity, trainer_id FROM batches WHERE id = ?',
+    [str(body.batch_id)]
+  );
   if (!batch) throw badRequest('Unknown batch_id');
+  if (batch.trainer_id !== scope.trainer_id) {
+    throw forbidden('You can only enrol into your own batches');
+  }
   if (student.customer_id !== batch.customer_id) {
     throw conflict('Student belongs to a different institution than the batch');
   }

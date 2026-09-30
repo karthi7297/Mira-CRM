@@ -257,7 +257,8 @@ async function getCollectionsQueue(scope) {
 
 // ---------- Revenue Trend ----------
 async function getRevenueTrend(scope) {
-  let invoicesSql = 'SELECT issue_date, total, customer_id FROM invoices WHERE total > 0';
+  // invoices carry created_at (there is no issue_date column — schema.js §invoices)
+  let invoicesSql = 'SELECT created_at, total, customer_id FROM invoices WHERE total > 0';
   let paymentsSql = 'SELECT date, amount, customer_id FROM payments WHERE amount > 0';
   const invParams = [];
   const payParams = [];
@@ -286,7 +287,7 @@ async function getRevenueTrend(scope) {
   }
 
   for (const inv of invoices) {
-    const m = (inv.issue_date || '').slice(0, 7);
+    const m = (inv.created_at || '').slice(0, 7);
     if (m && m.length === 7) {
       addMonth(m);
       monthsMap[m].billed += Number(inv.total || 0);
