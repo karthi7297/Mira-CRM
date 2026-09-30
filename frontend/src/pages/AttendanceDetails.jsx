@@ -265,7 +265,7 @@ export default function AttendanceDetails() {
             <tbody>
               {filteredLog.map((r, i) => (
                 <tr key={`${r.student_id}-${r.date}-${i}`}>
-                  <td><b>{r.date}</b></td>
+                  <td style={{ whiteSpace: 'nowrap' }}><b>{r.date}</b></td>
                   <td className="mono">{r.student_id}</td>
                   <td><b>{r.student_name}</b></td>
                   <td>{r.batch_id}</td>
@@ -274,7 +274,7 @@ export default function AttendanceDetails() {
                       {r.status}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12, color: '#64748b' }}>{r.marked_at || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: '#64748b' }}>{r.marked_at || '—'}</td>
                 </tr>
               ))}
             </tbody>

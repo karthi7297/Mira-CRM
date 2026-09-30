@@ -103,12 +103,41 @@ async function getCustomer360(scope, customerId) {
     students = [];
   }
 
+  // Top 10 students — ranked by attendance % then average score, the same
+  // rule the platform-wide report uses (db-prd §3b / dashboard.topStudents),
+  // so the two leaderboards never disagree. Scalar subqueries keep the score
+  // and attendance joins from fanning out rows and skewing the averages.
+  const topStudents = scope.role === 'student'
+    ? []
+    : await db.query(
+        `SELECT s.id, s.name, s.email,
+                (SELECT e.batch_id FROM enrollments e
+                  WHERE e.student_id = s.id ORDER BY e.enrolled_at LIMIT 1) AS batch_id,
+                (SELECT ROUND(AVG(sc.score * 100.0 / NULLIF(a.max_score, 0)))
+                   FROM scores sc
+                   JOIN assessments a ON a.id = sc.assessment_id
+                  WHERE sc.student_id = s.id) AS avg_score,
+                (SELECT COUNT(*) FROM scores sc WHERE sc.student_id = s.id) AS graded,
+                COALESCE((SELECT ROUND(100.0 * SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END)
+                                           / NULLIF(COUNT(*), 0))
+                            FROM attendance WHERE student_id = s.id), 0) AS attendance,
+                (SELECT COUNT(*) FROM attendance WHERE student_id = s.id) AS sessions
+           FROM students s
+          WHERE s.customer_id = ?
+          ORDER BY attendance DESC,
+                   COALESCE(avg_score, -1) DESC,
+                   s.name ASC
+          LIMIT 10`,
+        [customerId]
+      );
+
   return {
     ...c,
     lead,
     followups,
     batches: batchRows,
     students,
+    topStudents,
     attendance: attendanceByBatch,
     quotations,
     invoices,

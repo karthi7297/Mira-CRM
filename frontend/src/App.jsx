@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MyLearning from './pages/MyLearning';
 import { Leads, LeadDetail, Customers, Customer360 } from './pages/CRM';
-import { Programs, Batches, BatchDetail, Students, Attendance, TrainerLeaveRequests, StudentBulkAdd, Trainers } from './pages/Training';
+import { Programs, Batches, BatchDetail, Students, Attendance, TrainerLeaveRequests, StudentBulkAdd, Trainers, Assessments } from './pages/Training';
 import { Quotations, Invoices, InvoiceDetail, Payments, Expenses, Reports, TrainerFinance } from './pages/Finance';
 import { Enquire, Verify } from './pages/Public';
 import { Collections, Certificates } from './pages/Showcase';
@@ -46,6 +46,7 @@ export default function App() {
           <Route path="/batches" element={<Guard path="/batches"><Batches /></Guard>} />
           <Route path="/batches/:id" element={<Guard path="/batches"><BatchDetail /></Guard>} />
           <Route path="/students" element={<Guard path="/students"><Students /></Guard>} />
+          <Route path="/assessments" element={<Guard path="/assessments"><Assessments /></Guard>} />
           <Route path="/attendance-details" element={<Guard path="/attendance-details"><AttendanceDetails /></Guard>} />
           <Route path="/attendance" element={<Guard path="/attendance"><Attendance /></Guard>} />
           <Route path="/leave-approval" element={<Guard path="/leave-approval"><LeaveApproval /></Guard>} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, inr } from '../api';
 import { useAuth } from '../auth';
+import { BarChart, LineChart, PieChart, KPICard } from '../widgets';
 
 function TrendChart({ data }) {
   if (!data || !data.length) return <p style={{ fontSize: 13 }}>No trend data yet.</p>;
@@ -20,9 +21,19 @@ function TrendChart({ data }) {
 }
 
 function Feed({ items }) {
-  if (!items || !items.length) return <p style={{ fontSize: 13 }}>No recent activity.</p>;
+  if (!items || !items.length) return <div className="feed-empty">No recent activity</div>;
   const icon = { lead: '🎯', invoice: '🧾', payment: '💰', attendance: '📋' };
-  return <div className="feed">{items.map((e, i) => <div key={i}>{icon[e.type] || '•'} {e.label} <small style={{ color: '#94a3b8' }}>{String(e.at || '').slice(0, 10)}</small></div>)}</div>;
+  return (
+    <div className="feed">
+      {items.slice(0, 8).map((e, i) => (
+        <div key={i} className="feed-item">
+          <span className="feed-icon">{icon[e.type] || '•'}</span>
+          <span className="feed-label">{e.label}</span>
+          <span className="feed-time">{String(e.at || '').slice(0, 10)}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const Empty = ({ children }) => <p className="empty">{children}</p>;
@@ -192,6 +203,38 @@ export default function Dashboard() {
   const maxPipe = Math.max(1, ...d.byStatus.map((s) => s.count));
   const collectionRate = d.revenue ? Math.round((d.collected / d.revenue) * 100) : 0;
 
+  // Prepare chart data
+  const leadStatusData = d.byStatus.map(s => ({ status: s.status, count: s.count }));
+  const revenueStack = [
+    { label: 'Revenue', value: d.revenue },
+    { label: 'Collected', value: d.collected },
+    { label: 'Outstanding', value: d.outstanding },
+  ].filter(d => d.value > 0);
+  
+  const expenseCategories = [
+    { label: 'Trainer', value: d.trainerExpense || 0 },
+    { label: 'Venue', value: d.venueExpense || 0 },
+    { label: 'Travel', value: d.travelExpense || 0 },
+    { label: 'Accommodation', value: d.accommodationExpense || 0 },
+    { label: 'Materials', value: d.materialsExpense || 0 },
+    { label: 'Marketing', value: d.marketingExpense || 0 },
+    { label: 'Operations', value: d.operationsExpense || 0 },
+    { label: 'Other', value: d.otherExpense || 0 },
+  ].filter(c => c.value > 0);
+
+  const institutionRevenue = (d.institutions || []).map(x => ({
+    name: x.name,
+    billed: x.billed,
+    collected: x.collected,
+    outstanding: x.outstanding,
+  })).filter(i => i.billed > 0);
+
+  const revenueChartData = trend.length > 0 ? trend.slice(-12).map(t => ({
+    month: t.month.slice(5),
+    billed: t.billed,
+    collected: t.collected
+  })) : [];
+
   return (
     <div>
       <div className="page-head">
@@ -202,60 +245,118 @@ export default function Dashboard() {
       </div>
 
       <div className="cards">
-        <div className="card"><h4>Total Leads</h4><b>{d.totalLeads}</b></div>
-        <div className="card"><h4>Conversion</h4><b>{d.conversionRate}%</b></div>
-        <div className="card"><h4>Students</h4><b>{d.totalStudents}</b></div>
-        <div className="card"><h4>Trainers</h4><b>{d.totalTrainers}</b></div>
-        <div className="card"><h4>Active Batches</h4><b>{d.activeBatches}</b></div>
-        <div className="card"><h4>Revenue</h4><b>{inr(d.revenue)}</b></div>
-        <div className="card"><h4>Collected</h4><b>{inr(d.collected)}</b></div>
-        <div className="card"><h4>Outstanding</h4><b>{inr(d.outstanding)}</b></div>
+        <KPICard title="Total Leads" value={d.totalLeads} subtitle={`${d.conversionRate}% conversion`} color="var(--accent)" />
+        <KPICard title="Students" value={d.totalStudents} subtitle={`${d.activeBatches} active batches`} color="var(--info)" />
+        <KPICard title="Trainers" value={d.totalTrainers} subtitle="Active trainers" color="var(--ok)" />
+        <KPICard title="Revenue" value={inr(d.revenue)} subtitle={`Collected ${collectionRate}%`} trend={`${collectionRate - 70}%`} trendUp={collectionRate >= 70} color="var(--accent)" />
+        <KPICard title="Collected" value={inr(d.collected)} subtitle={`${d.recentPayments?.length || 0} recent payments`} color="var(--ok)" />
+        <KPICard title="Outstanding" value={inr(d.outstanding)} subtitle={`${d.outstandingInvoices?.length || 0} pending invoices`} color="var(--warn)" />
+        <KPICard title="Expenses" value={inr(d.expenses)} subtitle="Platform operating costs" color="var(--info)" />
+        <KPICard title="Net Position" value={inr(d.net)} subtitle={`Margin ${d.revenue ? Math.round((d.net / d.revenue) * 100) : 0}%`} color={d.net >= 0 ? 'var(--ok)' : 'var(--bad)'} />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Net Position</h4>
-          <b>{inr(d.net)}</b>
-          <small>collected − expenses {inr(d.expenses)}</small>
+          <h4>Lead Pipeline by Status</h4>
+          <div style={{ marginTop: 8 }}>
+            {leadStatusData.length > 0 ? (
+              <BarChart
+                data={leadStatusData}
+                keys={['count']}
+                colors={['#3b82f6', '#f59e0b', '#16a34a', '#8b5cf6', '#ef4444', '#64748b']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No lead data</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h4>Revenue vs Collection vs Outstanding</h4>
+          <div style={{ marginTop: 8 }}>
+            {revenueStack.length > 0 ? (
+              <PieChart
+                data={revenueStack}
+                labelKey="label"
+                valueKey="value"
+                colors={['#0e7268', '#16a34a', '#f59e0b']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No revenue data</div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid2">
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Lead Pipeline</h4>
-          <div className="list">
-            {d.byStatus.map((s) => (
-              <div className="list-row" key={s.status}>
-                <span className={'chip ' + s.status}>{s.status}</span>
-                <div className="bar"><i style={{ width: `${(s.count / maxPipe) * 100}%` }} /></div>
-                <b className="amt">{s.count}</b>
-              </div>
-            ))}
+          <h4>Expense Breakdown</h4>
+          <div style={{ marginTop: 8 }}>
+            {expenseCategories.length > 0 ? (
+              <PieChart
+                data={expenseCategories}
+                labelKey="label"
+                valueKey="value"
+                colors={['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8', '#ef4444']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No expense data</div>
+            )}
           </div>
         </div>
 
         <div className="card">
-          <h4>Revenue vs Collection</h4>
-          <div className="card-head-row">
-            <span>Collection rate</span>
-            <b className="amt">{collectionRate}%</b>
+          <h4>Top Institutions by Revenue</h4>
+          <div style={{ marginTop: 8 }}>
+            {institutionRevenue.length > 0 ? (
+              <BarChart
+                data={institutionRevenue.slice(0, 8)}
+                keys={['billed', 'collected', 'outstanding']}
+                colors={['#3b82f6', '#16a34a', '#f59e0b']}
+                height={180}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No institution data</div>
+            )}
           </div>
-          {[
-            ['Revenue', d.revenue, ''],
-            ['Collected', d.collected, 'ok'],
-            ['Outstanding', d.outstanding, 'warn'],
-          ].map(([label, value, tone]) => (
-            <div className="stack" key={label}>
-              <div className="row-between">
-                <span>{label}</span>
-                <b className="amt">{inr(value)}</b>
-              </div>
-              <div className={'bar lg ' + tone}>
-                <i style={{ width: `${d.revenue ? (value / d.revenue) * 100 : 0}%` }} />
-              </div>
+        </div>
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h4>Revenue Trend · Billed vs Collected (12 months)</h4>
+            <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+              <span><span style={{ color: '#3b82f6' }}>■</span> Billed <b className="amt" style={{ marginLeft: 6 }}>{inr(d.revenue)}</b></span>
+              <span><span style={{ color: '#16a34a' }}>■</span> Collected <b className="amt" style={{ marginLeft: 6 }}>{inr(d.collected)}</b></span>
+              <span><span style={{ color: '#f59e0b' }}>■</span> Outstanding <b className="amt" style={{ marginLeft: 6 }}>{inr(d.outstanding)}</b></span>
             </div>
-          ))}
+          </div>
+          <div style={{ marginTop: 8, flex: 1 }}>
+            {revenueChartData.length > 0 ? (
+              <LineChart
+                data={revenueChartData}
+                keys={['billed', 'collected']}
+                colors={['#3b82f6', '#16a34a']}
+                height={200}
+              />
+            ) : (
+              <TrendChart data={trend} />
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h4>Live Activity</h4>
+          <Feed items={feed} />
         </div>
       </div>
 
-      <div className="grid2">
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
           <h4>Active Batches</h4>
           {d.batches.length === 0 && <Empty>No active batches right now.</Empty>}
@@ -264,8 +365,9 @@ export default function Dashboard() {
               <div className="list-row" key={b.id}>
                 <Link className="mono" to={'/batches/' + b.id}>{b.id}</Link>
                 <span className="grow meta">
-                  {b.program_name} · {b.student_count} students
+                  {b.program_name} · {b.student_count} students · {b.trainer_name}
                 </span>
+                <span className={'chip ' + b.status}>{b.status}</span>
               </div>
             ))}
           </div>
@@ -282,38 +384,36 @@ export default function Dashboard() {
                   <span className="meta mono"> · {i.id}</span>
                 </span>
                 <b className="amt">{inr(i.outstanding)}</b>
+                <span className="meta">{i.due_date ? `Due: ${i.due_date}` : ''}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="card">
-          <h4>Revenue Trend · billed vs collected</h4>
-          <TrendChart data={trend} />
-        </div>
-
-        <div className="card">
-          <h4>Live Activity</h4>
-          <Feed items={feed} />
-        </div>
-      </div>
-
-      <div className="card">
-        <h4>Institutions · platform view</h4>
-        <div className="list">
+      <div className="card" style={{ marginTop: 20 }}>
+        <h4>Institutions · Platform View</h4>
+        <div className="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 12 }}>
           {(d.institutions || []).map((x) => (
-            <div className="list-row" key={x.id}>
-              <span className="grow">
-                <Link to={'/customers/' + x.id}>{x.name}</Link>
-                <span className="meta mono"> · {x.type} · {x.students} students · {x.batches} batches</span>
-              </span>
-              <span className="meta">{inr(x.billed)} / {inr(x.collected)} / <b className="amt">{inr(x.outstanding)}</b> · {x.attendance}%</span>
+            <div key={x.id} className="list-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8, padding: 14, border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', background: 'var(--surface)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <Link to={'/customers/' + x.id}><b>{x.name}</b></Link>
+                <span className="chip">{x.type}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12.5, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                <span><b>{x.students}</b> students</span>
+                <span><b>{x.batches}</b> batches</span>
+                <span><b>{x.attendance}%</b> attendance</span>
+              </div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 13, width: '100%', justifyContent: 'space-between' }}>
+                <span>Billed <b>{inr(x.billed)}</b></span>
+                <span>Collected <b style={{ color: 'var(--ok)' }}>{inr(x.collected)}</b></span>
+                <span>Outstanding <b className="amt">{inr(x.outstanding)}</b></span>
+              </div>
             </div>
           ))}
         </div>
-        <p className="meta"><Link to="/reports">Top students + performance reports →</Link> · <Link to="/collections">Collections queue →</Link></p>
+        <p className="meta" style={{ marginTop: 16 }}><Link to="/reports">Top students + performance reports →</Link> · <Link to="/collections">Collections queue →</Link></p>
       </div>
     </div>
   );

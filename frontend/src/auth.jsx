@@ -17,6 +17,7 @@ export const NAV = [
   { to: '/trainers', label: 'Trainers', roles: ['organization'] },
   { to: '/batches', label: 'Batches', roles: ['organization', 'trainer', 'institution'] },
   { to: '/students', label: 'Students', roles: ['trainer', 'institution'] },
+  { to: '/assessments', label: 'Assessments', roles: ['organization', 'institution', 'trainer'] },
   { to: '/attendance-details', label: 'Attendance Details', roles: ['institution'] },
   { to: '/attendance', label: 'Attendance', roles: ['trainer'] },
   { to: '/leave-approval', label: 'Leave Approval', roles: ['organization'] },

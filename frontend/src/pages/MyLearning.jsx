@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, inr } from '../api';
 import { useAuth } from '../auth';
 
-const TABS = ['Overview', 'Performance', 'Material', 'Certificates', 'Interests', 'Fee'];
+const TABS = ['Overview', 'Performance', 'Marks', 'Material', 'Certificates', 'Interests', 'Fee'];
 
 export default function MyLearning() {
   const [d, setD] = useState(null);
@@ -12,6 +12,7 @@ export default function MyLearning() {
   const [mats, setMats] = useState([]);
   const [ints, setInts] = useState([]);
   const [certs, setCerts] = useState([]);
+  const [scores, setScores] = useState([]);
   const [share, setShare] = useState('');
   const { user } = useAuth();
 
@@ -20,6 +21,7 @@ export default function MyLearning() {
     api.materials().then(setMats).catch(() => {});
     api.interests().then(setInts).catch(() => {});
     api.certificates().then(setCerts).catch(() => {});
+    api.scores().then(setScores).catch(() => {});
   };
   useEffect(() => { load(); }, []);
 
@@ -114,6 +116,55 @@ export default function MyLearning() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'Marks' && (
+        <div>
+          <div className="card">
+            <h4>My Assessment Scores</h4>
+            {scores.length === 0 && <p className="empty">No assessment scores recorded yet.</p>}
+            <table>
+              <thead>
+                <tr><th>Assessment</th><th>Batch</th><th>Score</th><th>Max Score</th><th>%</th><th>Date</th></tr>
+              </thead>
+              <tbody>
+                {scores.map((s, i) => {
+                  const pct = s.score !== null && s.score !== undefined && s.max_score
+                    ? Math.round((Number(s.score) / Number(s.max_score)) * 100)
+                    : '—';
+                  return (
+                    <tr key={i}>
+                      <td><b>{s.topic}</b></td>
+                      <td>{s.batch_id}</td>
+                      <td><b>{s.score ?? '—'}</b></td>
+                      <td>{s.max_score}</td>
+                      <td><b>{pct !== '—' ? pct + '%' : '—'}</b></td>
+                      <td>{s.assessed_on}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card mt">
+            <h4>Performance Summary</h4>
+            {scores.length > 0 && (
+              <>
+                <p className="meta">
+                  Average: <b>{d.avg_score ?? '—'}{d.avg_score != null && '%'}</b>
+                  {d.weak_areas && d.weak_areas.length > 0 && (
+                    <> · Weak areas: {d.weak_areas.map(w => `${w.topic} (${w.pct}%)`).join(', ')}</>
+                  )}
+                </p>
+                <div className="bar lg mt" style={{ height: 10 }}>
+                  <i style={{ width: `${d.avg_score || 0}%`, background: (d.avg_score || 0) >= 60 ? '#16a34a' : '#ef4444' }} />
+                </div>
+              </>
+            )}
+            {scores.length === 0 && <p className="meta">Complete assessments to see your performance summary.</p>}
           </div>
         </div>
       )}
