@@ -115,11 +115,35 @@ async function listStudents(scope) {
   const ids = (await visibleBatchIds(db, scope)) || [];
   if (!ids.length) return [];
   const ph = ids.map(() => '?').join(',');
-  return db.query(
+  const rows = await db.query(
     `SELECT DISTINCT s.* FROM students s
       JOIN enrollments e ON e.student_id = s.id
      WHERE e.batch_id IN (${ph}) ORDER BY s.id`,
     ids
+  );
+  // Enrich with the batch/program label + attendance % the "My Students" table renders.
+  return Promise.all(
+    rows.map(async (s) => {
+      const bs = await db.query(
+        `SELECT b.id, p.name AS program_name FROM enrollments e
+           JOIN batches b ON b.id = e.batch_id
+           LEFT JOIN programs p ON p.id = b.program_id
+          WHERE e.student_id = ? AND e.batch_id IN (${ph}) ORDER BY b.id`,
+        [s.id, ...ids]
+      );
+      const att = await db.get(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) AS present
+           FROM attendance WHERE student_id = ? AND batch_id IN (${ph})`,
+        [s.id, ...ids]
+      );
+      return {
+        ...s,
+        batch_label: bs.map((b) => b.id).join(', ') || null,
+        program: bs.map((b) => b.program_name).filter(Boolean).join(', ') || null,
+        attendance: pct(Number(att.present || 0), Number(att.total || 0)),
+      };
+    })
   );
 }
 
