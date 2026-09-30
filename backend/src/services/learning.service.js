@@ -123,17 +123,38 @@ async function listAssessments(scope, { batch_id = '' } = {}) {
   return rows;
 }
 
-async function createAssessment(scope, body = {}) {
-  requireFields(body, ['batch_id', 'title']);
+/**
+ * Write guard for assessments/scores: Rampex manages everything, the assigned
+ * trainer manages own batches, an institution manages only batches of its own
+ * customer (tenant-scoped — never another customer's batch).
+ */
+async function assertCanManageBatch(scope, batchId, { trainer, other } = {}) {
+  if (scope.role === 'organization') return;
   if (scope.role === 'trainer') {
     const assigned = await db.get(
       'SELECT 1 AS ok FROM batches WHERE id = ? AND trainer_id = ?',
-      [str(body.batch_id), scope.trainer_id]
+      [batchId, scope.trainer_id]
     );
-    if (!assigned) throw forbidden('Only the assigned trainer can assess this batch');
-  } else if (scope.role !== 'organization') {
-    throw forbidden('Only Rampex or the assigned trainer can create assessments');
+    if (!assigned) throw forbidden(trainer || 'Only the assigned trainer can manage this batch');
+    return;
   }
+  if (scope.role === 'institution') {
+    const own = await db.get(
+      'SELECT 1 AS ok FROM batches WHERE id = ? AND customer_id = ?',
+      [batchId, scope.customer_id]
+    );
+    if (!own) throw forbidden('Not authorized for this batch');
+    return;
+  }
+  throw forbidden(other || 'Not authorized');
+}
+
+async function createAssessment(scope, body = {}) {
+  requireFields(body, ['batch_id', 'title']);
+  await assertCanManageBatch(scope, str(body.batch_id), {
+    trainer: 'Only the assigned trainer can assess this batch',
+    other: 'Only Rampex or the assigned trainer can create assessments',
+  });
   const id = await nid(db, 'ASM', 'assessments');
   await db.run(
     'INSERT INTO assessments (id,batch_id,title,max_score,assessed_on,created_by) VALUES (?,?,?,?,?,?)',
@@ -166,15 +187,10 @@ async function saveScore(scope, body = {}) {
   requireFields(body, ['assessment_id', 'student_id']);
   const asm = await db.get('SELECT * FROM assessments WHERE id = ?', [str(body.assessment_id)]);
   if (!asm) throw notFound('Assessment not found');
-  if (scope.role === 'trainer') {
-    const assigned = await db.get(
-      'SELECT 1 AS ok FROM batches WHERE id = ? AND trainer_id = ?',
-      [asm.batch_id, scope.trainer_id]
-    );
-    if (!assigned) throw forbidden('Only the assigned trainer can record scores');
-  } else if (scope.role !== 'organization') {
-    throw forbidden('Only Rampex or the assigned trainer can record scores');
-  }
+  await assertCanManageBatch(scope, asm.batch_id, {
+    trainer: 'Only the assigned trainer can record scores',
+    other: 'Only Rampex or the assigned trainer can record scores',
+  });
   const score = Number(body.score);
   if (!Number.isFinite(score)) throw badRequest('score must be a number');
   await db.run(
@@ -183,6 +199,46 @@ async function saveScore(scope, body = {}) {
     [str(body.assessment_id), str(body.student_id), score]
   );
   return { saved: true };
+}
+
+async function updateAssessment(scope, id, body = {}) {
+  const asm = await db.get('SELECT * FROM assessments WHERE id = ?', [id]);
+  if (!asm) throw notFound('Assessment not found');
+  await assertCanManageBatch(scope, asm.batch_id, {
+    trainer: 'Only the assigned trainer can update this assessment',
+    other: 'Only Rampex or the assigned trainer can update assessments',
+  });
+  const title = body.title !== undefined ? str(body.title) : asm.title;
+  const max_score = body.max_score !== undefined ? Number(body.max_score) : asm.max_score;
+  const assessed_on = body.assessed_on !== undefined ? str(body.assessed_on) : asm.assessed_on;
+  await db.run(
+    'UPDATE assessments SET title = ?, max_score = ?, assessed_on = ? WHERE id = ?',
+    [title, max_score, assessed_on, id]
+  );
+  return db.get('SELECT * FROM assessments WHERE id = ?', [id]);
+}
+
+async function deleteAssessment(scope, id) {
+  const asm = await db.get('SELECT * FROM assessments WHERE id = ?', [id]);
+  if (!asm) throw notFound('Assessment not found');
+  await assertCanManageBatch(scope, asm.batch_id, {
+    trainer: 'Only the assigned trainer can delete this assessment',
+    other: 'Only Rampex or the assigned trainer can delete assessments',
+  });
+  await db.run('DELETE FROM scores WHERE assessment_id = ?', [id]);
+  await db.run('DELETE FROM assessments WHERE id = ?', [id]);
+  return { deleted: true, id };
+}
+
+async function deleteScore(scope, assessmentId, studentId) {
+  const asm = await db.get('SELECT * FROM assessments WHERE id = ?', [assessmentId]);
+  if (!asm) throw notFound('Assessment not found');
+  await assertCanManageBatch(scope, asm.batch_id, {
+    trainer: 'Only the assigned trainer can delete this score',
+    other: 'Only Rampex or the assigned trainer can delete scores',
+  });
+  await db.run('DELETE FROM scores WHERE assessment_id = ? AND student_id = ?', [assessmentId, studentId]);
+  return { deleted: true };
 }
 
 // ---------- Student report (FLOW T: attendance + scores + interests) ----------
@@ -245,5 +301,7 @@ async function topStudentsReport(scope, { customer_id = '' } = {}) {
 module.exports = {
   listSessions, createSession, listMaterials, createMaterial,
   listInterests, createInterest, listAssessments, createAssessment,
-  listScores, saveScore, studentReport, topStudentsReport,
+  updateAssessment, deleteAssessment,
+  listScores, saveScore, deleteScore,
+  studentReport, topStudentsReport,
 };

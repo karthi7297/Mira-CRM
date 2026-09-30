@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast } from '../api';
 import { useAuth } from '../auth';
+import { BarChart, LineChart, PieChart, KPICard } from '../widgets';
 
 export function Quotations() {
   const { user } = useAuth();
@@ -77,6 +78,15 @@ export function Quotations() {
   const totalValue = rows.reduce((acc, q) => acc + Number(q.total || 0), 0);
   const acceptedValue = rows.filter(q => q.status === 'ACCEPTED').reduce((acc, q) => acc + Number(q.total || 0), 0);
 
+  const statusData = [
+    { status: 'DRAFT', count: rows.filter(q => q.status === 'DRAFT').length, value: rows.filter(q => q.status === 'DRAFT').reduce((a, q) => a + Number(q.total || 0), 0) },
+    { status: 'SENT', count: rows.filter(q => q.status === 'SENT').length, value: rows.filter(q => q.status === 'SENT').reduce((a, q) => a + Number(q.total || 0), 0) },
+    { status: 'ACCEPTED', count: rows.filter(q => q.status === 'ACCEPTED').length, value: rows.filter(q => q.status === 'ACCEPTED').reduce((a, q) => a + Number(q.total || 0), 0) },
+    { status: 'REJECTED', count: rows.filter(q => q.status === 'REJECTED').length, value: rows.filter(q => q.status === 'REJECTED').reduce((a, q) => a + Number(q.total || 0), 0) },
+  ].filter(d => d.count > 0);
+
+  const conversionRate = totalValue > 0 ? Math.round((acceptedValue / totalValue) * 100) : 0;
+
   return (
     <div>
       <div className="page-head">
@@ -107,25 +117,45 @@ export function Quotations() {
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
       <div className="cards">
+        <KPICard title="Total Pipeline Value" value={inr(totalValue)} subtitle={`${rows.length} quotation documents`} color="var(--accent)" />
+        <KPICard title="Accepted Proposals" value={inr(acceptedValue)} subtitle={`${conversionRate}% conversion rate`} trend={`${conversionRate - 25}%`} trendUp={conversionRate >= 25} color="var(--ok)" />
+        <KPICard title="Sent / In Review" value={rows.filter(q => q.status === 'SENT').length} subtitle="Awaiting customer approval" color="var(--info)" />
+        <KPICard title="Drafts" value={rows.filter(q => q.status === 'DRAFT').length} subtitle="Internal proposals" color="var(--warn)" />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Total Pipeline Value</h4>
-          <b>{inr(totalValue)}</b>
-          <small>{rows.length} quotation documents</small>
+          <h4>Pipeline by Status</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <BarChart
+                data={statusData}
+                keys={['value']}
+                colors={['#f59e0b', '#3b82f6', '#16a34a', '#ef4444']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No pipeline data</div>
+            )}
+          </div>
         </div>
-        <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
-          <h4>Accepted Proposals</h4>
-          <b style={{ color: '#059669' }}>{inr(acceptedValue)}</b>
-          <small>{rows.filter(q => q.status === 'ACCEPTED').length} proposals agreed</small>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid #2563eb' }}>
-          <h4>Sent / In Review</h4>
-          <b>{rows.filter(q => q.status === 'SENT').length}</b>
-          <small>Awaiting customer approval</small>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <h4>Drafts</h4>
-          <b>{rows.filter(q => q.status === 'DRAFT').length}</b>
-          <small>Internal proposals</small>
+
+        <div className="card">
+          <h4>Status Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <PieChart
+                data={statusData}
+                labelKey="status"
+                valueKey="count"
+                colors={['#f59e0b', '#3b82f6', '#16a34a', '#ef4444']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No status data</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -340,6 +370,14 @@ export function Invoices() {
   const totalPaid = rows.reduce((acc, i) => acc + Number(i.paid || 0), 0);
   const totalOutstanding = rows.reduce((acc, i) => acc + Number(i.outstanding || 0), 0);
   const overdueCount = rows.filter(i => i.status === 'OVERDUE').length;
+  const collectionRate = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0;
+
+  const statusData = [
+    { status: 'UNPAID', count: rows.filter(i => i.status === 'UNPAID').length, value: rows.filter(i => i.status === 'UNPAID').reduce((a, i) => a + Number(i.total || 0), 0) },
+    { status: 'PARTIALLY_PAID', count: rows.filter(i => i.status === 'PARTIALLY_PAID').length, value: rows.filter(i => i.status === 'PARTIALLY_PAID').reduce((a, i) => a + Number(i.total || 0), 0) },
+    { status: 'PAID', count: rows.filter(i => i.status === 'PAID').length, value: rows.filter(i => i.status === 'PAID').reduce((a, i) => a + Number(i.total || 0), 0) },
+    { status: 'OVERDUE', count: rows.filter(i => i.status === 'OVERDUE').length, value: rows.filter(i => i.status === 'OVERDUE').reduce((a, i) => a + Number(i.total || 0), 0) },
+  ].filter(d => d.count > 0);
 
   return (
     <div>
@@ -379,25 +417,45 @@ export function Invoices() {
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
       <div className="cards">
+        <KPICard title="Total Billed" value={inr(totalBilled)} subtitle={`${rows.length} invoices issued`} color="var(--accent)" />
+        <KPICard title="Collected" value={inr(totalPaid)} subtitle={`${collectionRate}% recovery rate`} trend={`${collectionRate - 60}%`} trendUp={collectionRate >= 60} color="var(--ok)" />
+        <KPICard title="Outstanding Balance" value={inr(totalOutstanding)} subtitle="Receivables pending" color="var(--warn)" />
+        <KPICard title="Overdue Invoices" value={overdueCount} subtitle="Critical collection focus" color="var(--bad)" />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Total Billed</h4>
-          <b>{inr(totalBilled)}</b>
-          <small>{rows.length} invoices issued</small>
+          <h4>Invoices by Status</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <BarChart
+                data={statusData}
+                keys={['value']}
+                colors={['#ef4444', '#f59e0b', '#16a34a', '#dc2626']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No invoice data</div>
+            )}
+          </div>
         </div>
-        <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
-          <h4>Collected</h4>
-          <b style={{ color: '#059669' }}>{inr(totalPaid)}</b>
-          <small>{totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0}% recovery rate</small>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <h4>Outstanding Balance</h4>
-          <b style={{ color: '#d97706' }}>{inr(totalOutstanding)}</b>
-          <small>Receivables pending</small>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid #ef4444' }}>
-          <h4>Overdue Invoices</h4>
-          <b style={{ color: '#dc2626' }}>{overdueCount}</b>
-          <small>Critical collection focus</small>
+
+        <div className="card">
+          <h4>Status Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <PieChart
+                data={statusData}
+                labelKey="status"
+                valueKey="count"
+                colors={['#ef4444', '#f59e0b', '#16a34a', '#dc2626']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No status data</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -440,7 +498,7 @@ export function Invoices() {
             <tr key={i.id}>
               <td className="mono"><b>{i.id}</b></td>
               <td><b>{i.customer_name}</b></td>
-              <td style={{ fontSize: 13, color: '#64748b' }}>{i.due_date || '—'}</td>
+              <td style={{ whiteSpace: 'nowrap', fontSize: 13, color: '#64748b' }}>{i.due_date || '—'}</td>
               <td>{inr(i.total)}</td>
               <td style={{ color: '#059669' }}>{inr(i.paid)}</td>
               <td><b>{inr(i.outstanding)}</b></td>
@@ -648,7 +706,7 @@ export function InvoiceDetail() {
               <td className="mono">{p.id}</td>
               <td><b>{inr(p.amount)}</b></td>
               <td>{p.method}</td>
-              <td>{p.date}</td>
+              <td style={{ whiteSpace: 'nowrap' }}>{p.date}</td>
               <td className="meta">{p.reference || '—'}</td>
             </tr>
           ))}
@@ -707,6 +765,21 @@ export function Payments() {
 
   const totalCollected = rows.reduce((acc, p) => acc + Number(p.amount || 0), 0);
 
+  const methodData = [
+    { method: 'Bank Transfer', count: rows.filter(p => p.method === 'Bank Transfer').length, value: rows.filter(p => p.method === 'Bank Transfer').reduce((a, p) => a + Number(p.amount || 0), 0) },
+    { method: 'UPI', count: rows.filter(p => p.method === 'UPI').length, value: rows.filter(p => p.method === 'UPI').reduce((a, p) => a + Number(p.amount || 0), 0) },
+    { method: 'Cheque', count: rows.filter(p => p.method === 'Cheque').length, value: rows.filter(p => p.method === 'Cheque').reduce((a, p) => a + Number(p.amount || 0), 0) },
+    { method: 'Cash', count: rows.filter(p => p.method === 'Cash').length, value: rows.filter(p => p.method === 'Cash').reduce((a, p) => a + Number(p.amount || 0), 0) },
+  ].filter(d => d.count > 0);
+
+  const dailyCollections = rows.reduce((acc, p) => {
+    const date = p.date;
+    if (!acc[date]) acc[date] = 0;
+    acc[date] += Number(p.amount || 0);
+    return acc;
+  }, {});
+  const dailyData = Object.entries(dailyCollections).map(([date, amount]) => ({ date, amount })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+
   return (
     <div>
       <div className="page-head">
@@ -730,25 +803,93 @@ export function Payments() {
       </div>
 
       <div className="cards">
-        <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
-          <h4>Total Collected</h4>
-          <b style={{ color: '#059669' }}>{inr(totalCollected)}</b>
-          <small>{rows.length} transactions processed</small>
-        </div>
+        <KPICard title="Total Collected" value={inr(totalCollected)} subtitle={`${rows.length} transactions processed`} color="var(--accent)" />
+        <KPICard title="Bank Transfers" value={inr(rows.filter(p => p.method === 'Bank Transfer').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'Bank Transfer').length} settlements`} color="var(--info)" />
+        <KPICard title="UPI & Digital" value={inr(rows.filter(p => p.method === 'UPI').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'UPI').length} instant payments`} color="var(--ok)" />
+        <KPICard title="Cheque & Cash" value={inr(rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).length} cleared receipts`} color="var(--warn)" />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Bank Transfers</h4>
-          <b>{inr(rows.filter(p => p.method === 'Bank Transfer').reduce((acc, p) => acc + Number(p.amount || 0), 0))}</b>
-          <small>{rows.filter(p => p.method === 'Bank Transfer').length} settlements</small>
+          <h4>Collections by Method</h4>
+          <div style={{ marginTop: 8 }}>
+            {methodData.length > 0 ? (
+              <BarChart
+                data={methodData}
+                keys={['value']}
+                colors={['#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No payment data</div>
+            )}
+          </div>
         </div>
+
         <div className="card">
-          <h4>UPI & Digital</h4>
-          <b>{inr(rows.filter(p => p.method === 'UPI').reduce((acc, p) => acc + Number(p.amount || 0), 0))}</b>
-          <small>{rows.filter(p => p.method === 'UPI').length} instant payments</small>
+          <h4>Daily Collections (Last 14 Days)</h4>
+          <div style={{ marginTop: 8 }}>
+            {dailyData.length > 0 ? (
+              <LineChart
+                data={dailyData}
+                keys={['amount']}
+                colors={['#16a34a']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No daily data</div>
+            )}
+          </div>
         </div>
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Cheque & Cash</h4>
-          <b>{inr(rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).reduce((acc, p) => acc + Number(p.amount || 0), 0))}</b>
-          <small>{rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).length} cleared receipts</small>
+          <h4>Method Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {methodData.length > 0 ? (
+              <PieChart
+                data={methodData}
+                labelKey="method"
+                valueKey="value"
+                colors={['#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No method data</div>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h4>Top Customers by Payment</h4>
+          <div style={{ marginTop: 8 }}>
+            {rows.length > 0 && (
+              <div className="list" style={{ maxHeight: 200, overflow: 'auto' }}>
+                {(() => {
+                  const agg = rows.reduce((acc, p) => {
+                    const name = p.customer_name || 'Unknown';
+                    if (!acc[name]) acc[name] = { amount: 0, count: 0 };
+                    acc[name].amount += Number(p.amount || 0);
+                    acc[name].count += 1;
+                    return acc;
+                  }, {});
+                  return Object.entries(agg)
+                    .sort((a, b) => b[1].amount - a[1].amount)
+                    .slice(0, 8)
+                    .map(([name, data]) => (
+                      <div key={name} className="list-row">
+                        <span className="grow"><b>{name}</b></span>
+                        <span className="meta">{data.count} payments</span>
+                        <b className="amt">{inr(data.amount)}</b>
+                      </div>
+                    ));
+                })()}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -794,7 +935,7 @@ export function Payments() {
               <td><b>{p.customer_name}</b></td>
               <td><b style={{ color: '#059669' }}>{inr(p.amount)}</b></td>
               <td><span className="chip" style={{ background: '#f1f5f9', color: '#334155' }}>{p.method}</span></td>
-              <td>{p.date}</td>
+              <td style={{ whiteSpace: 'nowrap' }}>{p.date}</td>
               <td className="meta">{p.reference || '—'}</td>
               <td>
                 <button className="btn sm ghost" onClick={() => setSelectedReceipt(p)}>Receipt</button>
@@ -886,6 +1027,24 @@ export function Expenses() {
   const trainerExpense = rows.filter(x => x.category === 'Trainer').reduce((acc, x) => acc + Number(x.amount || 0), 0);
   const pendingClaims = rows.filter(x => x.status === 'PENDING').reduce((acc, x) => acc + Number(x.amount || 0), 0);
 
+  const categoryData = [
+    { category: 'Trainer', count: rows.filter(x => x.category === 'Trainer').length, value: rows.filter(x => x.category === 'Trainer').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Venue', count: rows.filter(x => x.category === 'Venue').length, value: rows.filter(x => x.category === 'Venue').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Travel', count: rows.filter(x => x.category === 'Travel').length, value: rows.filter(x => x.category === 'Travel').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Accommodation', count: rows.filter(x => x.category === 'Accommodation').length, value: rows.filter(x => x.category === 'Accommodation').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Materials', count: rows.filter(x => x.category === 'Materials').length, value: rows.filter(x => x.category === 'Materials').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Marketing', count: rows.filter(x => x.category === 'Marketing').length, value: rows.filter(x => x.category === 'Marketing').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Operations', count: rows.filter(x => x.category === 'Operations').length, value: rows.filter(x => x.category === 'Operations').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { category: 'Other', count: rows.filter(x => x.category === 'Other').length, value: rows.filter(x => x.category === 'Other').reduce((a, x) => a + Number(x.amount || 0), 0) },
+  ].filter(d => d.count > 0);
+
+  const statusData = [
+    { status: 'PENDING', count: rows.filter(x => x.status === 'PENDING').length, value: rows.filter(x => x.status === 'PENDING').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { status: 'APPROVED', count: rows.filter(x => x.status === 'APPROVED').length, value: rows.filter(x => x.status === 'APPROVED').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { status: 'REJECTED', count: rows.filter(x => x.status === 'REJECTED').length, value: rows.filter(x => x.status === 'REJECTED').reduce((a, x) => a + Number(x.amount || 0), 0) },
+    { status: 'PAID', count: rows.filter(x => x.status === 'PAID').length, value: rows.filter(x => x.status === 'PAID').reduce((a, x) => a + Number(x.amount || 0), 0) },
+  ].filter(d => d.count > 0);
+
   return (
     <div>
       <div className="page-head">
@@ -898,25 +1057,81 @@ export function Expenses() {
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
       <div className="cards">
+        <KPICard title="Total Expenses" value={inr(totalExpense)} subtitle={`${rows.length} expense line items`} color="var(--accent)" />
+        <KPICard title="Trainer Payouts" value={inr(trainerExpense)} subtitle={`${totalExpense > 0 ? Math.round((trainerExpense / totalExpense) * 100) : 0}% of outlays`} color="var(--info)" />
+        <KPICard title="Pending Claims" value={inr(pendingClaims)} subtitle={`${rows.filter(x => x.status === 'PENDING').length} awaiting approval`} color="var(--warn)" />
+        <KPICard title="Settled / Paid" value={inr(rows.filter(x => x.status === 'PAID').reduce((acc, x) => acc + Number(x.amount || 0), 0))} subtitle="Processed expenses" color="var(--ok)" />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
-          <h4>Total Expenses</h4>
-          <b>{inr(totalExpense)}</b>
-          <small>{rows.length} expense line items</small>
+          <h4>Expenses by Category</h4>
+          <div style={{ marginTop: 8 }}>
+            {categoryData.length > 0 ? (
+              <BarChart
+                data={categoryData}
+                keys={['value']}
+                colors={['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8', '#ef4444']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No expense data</div>
+            )}
+          </div>
         </div>
-        <div className="card" style={{ borderLeft: '4px solid #2563eb' }}>
-          <h4>Trainer Payouts</h4>
-          <b>{inr(trainerExpense)}</b>
-          <small>{totalExpense > 0 ? Math.round((trainerExpense / totalExpense) * 100) : 0}% of outlays</small>
+
+        <div className="card">
+          <h4>Category Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {categoryData.length > 0 ? (
+              <PieChart
+                data={categoryData}
+                labelKey="category"
+                valueKey="value"
+                colors={['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8', '#ef4444']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No category data</div>
+            )}
+          </div>
         </div>
-        <div className="card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <h4>Pending Claims</h4>
-          <b style={{ color: '#d97706' }}>{inr(pendingClaims)}</b>
-          <small>{rows.filter(x => x.status === 'PENDING').length} awaiting approval</small>
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="card">
+          <h4>Status Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <PieChart
+                data={statusData}
+                labelKey="status"
+                valueKey="value"
+                colors={['#f59e0b', '#3b82f6', '#ef4444', '#16a34a']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No status data</div>
+            )}
+          </div>
         </div>
-        <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
-          <h4>Settled / Paid</h4>
-          <b style={{ color: '#059669' }}>{inr(rows.filter(x => x.status === 'PAID').reduce((acc, x) => acc + Number(x.amount || 0), 0))}</b>
-          <small>Processed expenses</small>
+
+        <div className="card">
+          <h4>Expenses by Status (Count)</h4>
+          <div style={{ marginTop: 8 }}>
+            {statusData.length > 0 ? (
+              <BarChart
+                data={statusData}
+                keys={['count']}
+                colors={['#f59e0b', '#3b82f6', '#ef4444', '#16a34a']}
+                height={180}
+                showLegend={false}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No status data</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1099,9 +1314,11 @@ export function TrainerFinance() {
 export function Reports() {
   const [d, setD] = useState(null);
   const [top, setTop] = useState([]);
+  const [trend, setTrend] = useState([]);
   useEffect(() => {
     api.dashboard().then(setD);
     api.topStudents().then(setTop).catch(() => {});
+    api.trend().then(setTrend).catch(() => {});
   }, []);
 
   if (!d) return <div className="loading">Loading reports…</div>;
@@ -1109,6 +1326,30 @@ export function Reports() {
   const collectionRate = d.revenue ? Math.round((d.collected / d.revenue) * 100) : 0;
   const netMargin = d.revenue ? Math.round((d.net / d.revenue) * 100) : 0;
   const estimatedCashflow30d = Math.round(Number(d.outstanding || 0) * 0.65);
+
+  // Prepare chart data
+  const revenueChartData = trend.length > 0 ? trend.slice(-12).map(t => ({
+    month: t.month.slice(5),
+    billed: t.billed,
+    collected: t.collected
+  })) : [];
+  
+  const expenseCategories = [
+    { label: 'Trainer', value: d.trainerExpense || 0 },
+    { label: 'Venue', value: d.venueExpense || 0 },
+    { label: 'Travel', value: d.travelExpense || 0 },
+    { label: 'Accommodation', value: d.accommodationExpense || 0 },
+    { label: 'Materials', value: d.materialsExpense || 0 },
+    { label: 'Marketing', value: d.marketingExpense || 0 },
+    { label: 'Operations', value: d.operationsExpense || 0 },
+    { label: 'Other', value: d.otherExpense || 0 },
+  ].filter(c => c.value > 0);
+
+  const paymentMethods = [
+    { label: 'Bank Transfer', value: d.bankTransferTotal || 0 },
+    { label: 'UPI', value: d.upiTotal || 0 },
+    { label: 'Cheque/Cash', value: d.chequeCashTotal || 0 },
+  ].filter(c => c.value > 0);
 
   return (
     <div>
@@ -1121,36 +1362,91 @@ export function Reports() {
       </div>
 
       <div className="cards">
-        <div className="card"><h4>Revenue</h4><b>{inr(d.revenue)}</b></div>
-        <div className="card">
-          <h4>Collected</h4>
-          <b>{inr(d.collected)}</b>
-          <small>{collectionRate}% of revenue</small>
+        <KPICard title="Revenue" value={inr(d.revenue)} subtitle={`${d.totalLeads || 0} active leads`} color="var(--accent)" />
+        <KPICard title="Collected" value={inr(d.collected)} subtitle={`${collectionRate}% collection rate`} trend={`${Math.round((collectionRate - 70) * 10) / 10}%`} trendUp={collectionRate >= 70} color="var(--ok)" />
+        <KPICard title="Outstanding" value={inr(d.outstanding)} subtitle={`${d.outstandingInvoices?.length || 0} pending invoices`} color="var(--warn)" />
+        <KPICard title="Net Operating Margin" value={inr(d.net)} subtitle={`${netMargin}% margin · expenses ${inr(d.expenses)}`} color="var(--info)" />
+      </div>
+
+      <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="card" style={{ borderLeft: '5px solid #2563eb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h4 style={{ margin: 0 }}>Cashflow & Liquidity Forecast (Next 30 Days)</h4>
+              <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+                Dynamic projection model based on invoice due dates and weighted 65% historical collection velocity.
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: 22, fontWeight: 700, color: '#16a34a' }}>~{inr(estimatedCashflow30d)}</span>
+              <small style={{ display: 'block', color: '#64748b' }}>Projected 30d Cash Inflow</small>
+            </div>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <LineChart 
+              data={revenueChartData.length > 0 ? revenueChartData : [{ month: 'Jan', projected: 0 }, { month: 'Feb', projected: 0 }, { month: 'Mar', projected: 0 }]}
+              keys={['projected']}
+              colors={['#16a34a']}
+              height={100}
+              showLegend={false}
+            />
+          </div>
         </div>
-        <div className="card"><h4>Outstanding</h4><b>{inr(d.outstanding)}</b></div>
+
         <div className="card">
-          <h4>Net Operating Margin</h4>
-          <b>{inr(d.net)} ({netMargin}%)</b>
-          <small>expenses {inr(d.expenses)}</small>
+          <h4>Revenue vs Collection Trend</h4>
+          <div style={{ marginTop: 8 }}>
+            {revenueChartData.length > 0 ? (
+              <LineChart
+                data={revenueChartData}
+                keys={['billed', 'collected']}
+                colors={['#3b82f6', '#16a34a']}
+                height={180}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No trend data available yet</div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 20, borderLeft: '5px solid #2563eb' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h4 style={{ margin: 0 }}>Cashflow & Liquidity Forecast (Next 30 Days)</h4>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
-              Dynamic projection model based on invoice due dates and weighted 65% historical collection velocity.
-            </p>
+      <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="card">
+          <h4>Expense Breakdown</h4>
+          <div style={{ marginTop: 8 }}>
+            {expenseCategories.length > 0 ? (
+              <PieChart
+                data={expenseCategories}
+                labelKey="label"
+                valueKey="value"
+                colors={['#0e7268', '#17a493', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No expense data available</div>
+            )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>~{inr(estimatedCashflow30d)}</span>
-            <small style={{ display: 'block', color: '#64748b' }}>Projected 30d Cash Inflow</small>
+        </div>
+
+        <div className="card">
+          <h4>Payment Methods Distribution</h4>
+          <div style={{ marginTop: 8 }}>
+            {paymentMethods.length > 0 ? (
+              <PieChart
+                data={paymentMethods}
+                labelKey="label"
+                valueKey="value"
+                colors={['#16a34a', '#3b82f6', '#f59e0b']}
+                height={200}
+              />
+            ) : (
+              <div className="empty" style={{ padding: 40 }}>No payment data available</div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="grid2">
+      <div className="grid2" style={{ marginTop: 16 }}>
         <div className="card">
           <h4>Outstanding Invoices</h4>
           {d.outstandingInvoices.length === 0 && <p className="empty">Every invoice is settled.</p>}

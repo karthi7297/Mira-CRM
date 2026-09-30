@@ -10,6 +10,24 @@ function filterInstitutionLeaves(leaves, customerId) {
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'CONVERTED', 'LOST'];
 const KANBAN_STAGES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'CONVERTED'];
 
+const STAGE_COLORS = {
+  NEW: '#3b82f6',
+  CONTACTED: '#f59e0b',
+  QUALIFIED: '#8b5cf6',
+  PROPOSAL: '#ec4899',
+  CONVERTED: '#16a34a',
+  LOST: '#64748b',
+};
+
+const STAGE_LABELS = {
+  NEW: 'New',
+  CONTACTED: 'Contacted',
+  QUALIFIED: 'Qualified',
+  PROPOSAL: 'Proposal',
+  CONVERTED: 'Converted',
+  LOST: 'Lost',
+};
+
 function getPropensity(lead) {
   let score = 25;
   if (lead.expected_students >= 100) score += 25;
@@ -74,6 +92,15 @@ export function Leads() {
     }
   };
 
+  // KPI calculations
+  const totalLeads = rows.length;
+  const pipelineValue = rows.reduce((acc, l) => acc + Number(l.expected_value || 0), 0);
+  const convertedLeads = rows.filter(l => l.status === 'CONVERTED').length;
+  const conversionRate = totalLeads ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+  const autoLeads = rows.filter(l => l.source === 'Website' || l.source === 'Online').length;
+
+  const nextStageMap = { NEW: 'CONTACTED', CONTACTED: 'QUALIFIED', QUALIFIED: 'PROPOSAL', PROPOSAL: 'CONVERTED' };
+
   return (
     <div>
       <div className="page-head">
@@ -81,7 +108,7 @@ export function Leads() {
           <h2>Leads Pipeline</h2>
           <p className="sub">Lead management · Auto-captured enquiries · Conversion propensity radar</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="seg">
             <button type="button" className={view === 'kanban' ? 'on' : ''} onClick={() => setView('kanban')}>Kanban</button>
             <button type="button" className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}>Table</button>
@@ -93,7 +120,7 @@ export function Leads() {
             style={{ minWidth: 140 }}
           >
             <option value="ALL">All Statuses</option>
-            {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {LEAD_STATUSES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
           </select>
           <input
             className="search-input"
@@ -109,19 +136,38 @@ export function Leads() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
+      {/* KPI Cards */}
+      <div className="cards">
+        <div className="card" style={{ borderLeft: '4px solid var(--accent)' }}>
+          <h4>Total Leads</h4><b>{totalLeads}</b><small>{autoLeads} auto-captured</small></div>
+        <div className="card" style={{ borderLeft: '4px solid var(--info)' }}>
+          <h4>Pipeline Value</h4><b>{inr(pipelineValue)}</b><small>Across all stages</small></div>
+        <div className="card" style={{ borderLeft: '4px solid var(--ok)' }}>
+          <h4>Conversion Rate</h4><b>{conversionRate}%</b><small>{convertedLeads} converted</small></div>
+        <div className="card" style={{ borderLeft: '4px solid var(--warn)' }}>
+          <h4>Avg Propensity</h4>
+          <b>
+            {totalLeads
+              ? Math.round(rows.reduce((a, l) => a + getPropensity(l).score, 0) / totalLeads)
+              : 0}%
+          </b>
+          <small>Weighted score</small>
+        </div>
+      </div>
+
       {view === 'kanban' ? (
         <div className="kanban-board">
           {KANBAN_STAGES.map((stage) => {
             const stageLeads = rows.filter((l) => l.status === stage);
             const stageValue = stageLeads.reduce((acc, l) => acc + Number(l.expected_value || 0), 0);
-            const nextStageMap = { NEW: 'CONTACTED', CONTACTED: 'QUALIFIED', QUALIFIED: 'PROPOSAL', PROPOSAL: 'CONVERTED' };
             const nextStage = nextStageMap[stage];
+            const stageColor = STAGE_COLORS[stage];
 
             return (
-              <div className="kanban-col" key={stage}>
-                <div className="kanban-col-head">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className={'chip ' + stage}>{stage}</span>
+              <div className="kanban-col" key={stage} style={{ '--sc': stageColor }}>
+                <div className="kanban-col-head" style={{ background: `${stageColor}15` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <span className="chip" style={{ background: stageColor, color: '#fff' }}>{STAGE_LABELS[stage]}</span>
                     <span className="kanban-count">{stageLeads.length}</span>
                   </div>
                   <span className="kanban-val">{inr(stageValue)}</span>
@@ -133,7 +179,7 @@ export function Leads() {
                     const isAuto = l.source === 'Website' || l.source === 'Online';
 
                     return (
-                      <div className="kanban-card" key={l.id}>
+                      <div className="kanban-card" key={l.id} draggable onDragStart={(e) => e.dataTransfer.setData('leadId', l.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('leadId'); if (id !== l.id) advanceStatus(id, stage); }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <span className="mono" style={{ fontSize: 11, color: '#64748b' }}>{l.id}</span>
                           {isAuto && <span className="chip" style={{ background: '#dbeafe', color: '#1e40af', fontSize: 10, padding: '1px 6px' }}>⚡ AUTO</span>}
@@ -153,14 +199,14 @@ export function Leads() {
                           <Link to={'/leads/' + l.id} className="btn ghost sm">Details →</Link>
                           {nextStage && (
                             <button className="btn sm" onClick={() => advanceStatus(l.id, nextStage)}>
-                              Move to {nextStage} →
+                              Move to {STAGE_LABELS[nextStage]} →
                             </button>
                           )}
                         </div>
                       </div>
                     );
                   })}
-                  {stageLeads.length === 0 && <p className="empty" style={{ fontSize: 12, padding: '16px 0' }}>No leads</p>}
+                  {stageLeads.length === 0 && <p className="empty" style={{ fontSize: 12, padding: '16px 0', color: '#94a3b8' }}>Drop leads here</p>}
                 </div>
               </div>
             );
@@ -172,25 +218,36 @@ export function Leads() {
             <thead>
               <tr>
                 <th>Lead ID</th><th>Company</th><th>Contact</th><th>Program</th>
-                <th>Status</th><th>Propensity</th><th>Value</th><th></th>
+                <th>Status</th><th>Propensity</th><th>Value</th><th>Source</th><th></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((l) => {
                 const prop = getPropensity(l);
                 const isAuto = l.source === 'Website' || l.source === 'Online';
+                const stageColor = STAGE_COLORS[l.status];
                 return (
                   <tr key={l.id}>
                     <td>
-                      {l.id} {isAuto && <span className="chip" style={{ background: '#dbeafe', color: '#1e40af', fontSize: 10 }}>AUTO</span>}
+                      {l.id} {isAuto && <span className="chip" style={{ background: '#dbeafe', color: '#1e40af', fontSize: 10 }}>⚡ AUTO</span>}
                     </td>
                     <td><b>{l.organization}</b></td>
                     <td>{l.contact_person}</td>
                     <td>{l.program || '—'}</td>
-                    <td><span className={'chip ' + l.status}>{l.status}</span></td>
+                    <td>
+                      <select
+                        className="select-sm"
+                        value={l.status}
+                        onChange={(e) => advanceStatus(l.id, e.target.value)}
+                        style={{ background: stageColor, color: '#fff', borderColor: stageColor, minWidth: 130 }}
+                      >
+                        {LEAD_STATUSES.map(s => <option key={s} value={s} style={{ background: '#fff', color: '#000' }}>{STAGE_LABELS[s]}</option>)}
+                      </select>
+                    </td>
                     <td><span style={{ color: prop.color, fontWeight: 600, fontSize: 12 }}>{prop.score}% {prop.label}</span></td>
                     <td>{inr(l.expected_value)}</td>
-                    <td><Link to={'/leads/' + l.id}>Open</Link></td>
+                    <td>{l.source || '—'}</td>
+                    <td><Link to={'/leads/' + l.id} className="btn ghost sm">Open</Link></td>
                   </tr>
                 );
               })}
@@ -353,6 +410,7 @@ export function Customers() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const navigate = useNavigate();
   useEffect(() => { api.customers().then(setRows); }, []);
 
   const list = rows.filter((c) => {
@@ -385,12 +443,16 @@ export function Customers() {
         <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Type</th><th></th></tr></thead>
         <tbody>
           {list.map((c) => (
-            <tr key={c.id}>
+            <tr key={c.id} onClick={() => navigate('/customers/' + c.id)} style={{ cursor: 'pointer' }}>
               <td>{c.id}</td>
               <td><b>{c.name}</b></td>
               <td>{c.contact_person}</td>
               <td>{c.type}</td>
-              <td><Link to={'/customers/' + c.id}>Customer 360 →</Link></td>
+              <td>
+                <Link to={'/customers/' + c.id} onClick={(e) => e.stopPropagation()}>
+                  View Details →
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -429,6 +491,8 @@ export function Customer360({ fixedId }) {
 
   if (!c) return <div className={msg ? 'err' : 'loading'}>{msg || 'Loading customer 360…'}</div>;
 
+  const topStudents = c.topStudents || [];
+
   return (
     <div>
       {!fixedId && <Link to="/customers" className="back">← Institutions</Link>}
@@ -448,17 +512,102 @@ export function Customer360({ fixedId }) {
       </div>
 
       {tab === 'Overview' && (
-        <div className="cards">
-          <div className="card">
-            <h4>Contact</h4>
-            <b className="sm">{c.contact_person}</b>
-            <p className="meta">{c.email}<br />{c.phone}<br />From lead: {c.lead_id || '—'}</p>
+        <>
+          <div className="cards">
+            <div className="card">
+              <h4>Contact</h4>
+              <b className="sm">{c.contact_person}</b>
+              <p className="meta">{c.email}<br />{c.phone}<br />From lead: {c.lead_id || '—'}</p>
+            </div>
+            <div className="card"><h4>Active Programs</h4><b>{c.summary.programs}</b></div>
+            <div className="card"><h4>Students</h4><b>{c.summary.students}</b></div>
+            <div className="card"><h4>Revenue</h4><b>{inr(c.summary.revenue)}</b></div>
           </div>
-          <div className="card"><h4>Active Programs</h4><b>{c.summary.programs}</b></div>
-          <div className="card"><h4>Students</h4><b>{c.summary.students}</b></div>
-          <div className="card"><h4>Revenue</h4><b>{inr(c.summary.revenue)}</b></div>
-          <div className="card"><h4>Outstanding</h4><b>{inr(c.summary.outstanding)}</b></div>
-        </div>
+
+          <div className="cards" style={{ marginTop: 14 }}>
+            <div className="card"><h4>Collected</h4><b>{inr(c.summary.collected)}</b></div>
+            <div className="card"><h4>Outstanding</h4><b>{inr(c.summary.outstanding)}</b></div>
+            <div className="card"><h4>Net Position</h4><b>{inr(c.summary.net)}</b></div>
+            <div className="card">
+              <h4>Collection Risk</h4>
+              <span className={'chip risk-' + c.risk}>{c.risk}</span>
+              <p className="meta">Onboarded {String(c.created_at || '').slice(0, 10) || '—'}</p>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+              <div>
+                <h4 style={{ margin: 0 }}>Top 10 Students</h4>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+                  Ranked by attendance, then average assessment score.
+                </p>
+              </div>
+              <Link to="/students" className="btn sm ghost">Open Student Roster →</Link>
+            </div>
+
+            {topStudents.length === 0 ? (
+              <p className="empty">No students enrolled in this institution yet.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 70 }}>Rank</th>
+                    <th>Student</th>
+                    <th>Batch</th>
+                    <th>Avg Score</th>
+                    <th>Attendance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topStudents.map((s, i) => {
+                    const rankColor = ['#b45309', '#64748b', '#92400e'][i] || '#64748b';
+                    const hasScore = s.avg_score !== null && s.avg_score !== undefined;
+                    return (
+                      <tr key={s.id}>
+                        <td>
+                          <span
+                            className="chip"
+                            style={{
+                              background: i < 3 ? `${rankColor}1a` : '#f1f5f9',
+                              color: i < 3 ? rankColor : '#64748b',
+                              fontWeight: 700,
+                            }}
+                          >
+                            #{i + 1}
+                          </span>
+                        </td>
+                        <td>
+                          <b>{s.name}</b>
+                          <small style={{ display: 'block', color: '#64748b' }}>{s.email || s.id}</small>
+                        </td>
+                        <td className="mono">{s.batch_id || '—'}</td>
+                        <td>
+                          {hasScore ? (
+                            <>
+                              <b>{s.avg_score}%</b>
+                              <small style={{ display: 'block', color: '#94a3b8' }}>
+                                {s.graded} assessment{s.graded === 1 ? '' : 's'} graded
+                              </small>
+                            </>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontSize: 13 }}>Not graded yet</span>
+                          )}
+                        </td>
+                        <td>
+                          <b>{s.sessions ? `${s.attendance}%` : '—'}</b>
+                          <small style={{ display: 'block', color: '#94a3b8' }}>
+                            {s.sessions} session{s.sessions === 1 ? '' : 's'}
+                          </small>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
       )}
 
       {tab === 'Training' && (
