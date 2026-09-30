@@ -17,7 +17,7 @@ const ROLE_LABEL = {
 const SECTIONS = [
   { label: 'Overview', routes: ['/', '/learning'] },
   { label: 'CRM', routes: ['/leads', '/customers', '/college'] },
-  { label: 'Training', routes: ['/programs', '/batches', '/students', '/attendance'] },
+  { label: 'Training', routes: ['/programs', '/trainers', '/batches', '/students', '/attendance', '/my-leave'] },
   { label: 'Finance', routes: ['/quotations', '/invoices', '/payments', '/expenses', '/my-finance', '/collections'] },
   { label: 'Insights', routes: ['/reports', '/certificates'] },
 ];
@@ -153,6 +153,22 @@ const ICONS = {
       <path d="m6.2 8.9-1.4 4.7 3.2-2 3.2 2-1.4-4.7" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+      <path d="M2.5 6h11" />
+      <path d="M6 2.5v3.5M10 2.5v3.5" />
+      <circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none" />
+    </>
+  ),
+  trainers: (
+    <>
+      <circle cx="8" cy="4.5" r="2.5" />
+      <path d="M1.5 13.5c0-2.2 1.8-3.8 4-3.8s4 1.6 4 3.8" />
+      <circle cx="14.5" cy="4.5" r="2.5" />
+      <path d="M9 10.5c1.6.5 2.6 1.7 2.6 3.4" />
+    </>
+  ),
   logout: (
     <>
       <path d="M6.4 13.5H4c-.8 0-1.5-.7-1.5-1.5V4c0-.8.7-1.5 1.5-1.5h2.4" />
@@ -178,9 +194,11 @@ const ICON_FOR = {
   '/customers': 'customers',
   '/college': 'college',
   '/programs': 'programs',
+  '/trainers': 'trainers',
   '/batches': 'batches',
   '/students': 'students',
   '/attendance': 'attendance',
+  '/my-leave': 'calendar',
   '/my-finance': 'wallet',
   '/quotations': 'quotations',
   '/invoices': 'invoices',

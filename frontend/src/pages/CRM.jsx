@@ -3,6 +3,10 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr } from '../api';
 import { useAuth } from '../auth';
 
+function filterInstitutionLeaves(leaves, customerId) {
+  return leaves.filter(l => l.customer_id === customerId);
+}
+
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'CONVERTED', 'LOST'];
 const KANBAN_STAGES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'CONVERTED'];
 
@@ -36,14 +40,14 @@ function getPropensity(lead) {
 export function Leads() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState('');
-  const [st, setSt] = useState('');
+  const [st, setSt] = useState('ALL');
   const [view, setView] = useState('kanban');
   const [show, setShow] = useState(false);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
 
   const load = () =>
-    api.leads(`?search=${encodeURIComponent(q)}&status=${st}`).then(setRows).catch((e) => setMsg(e.message));
+    api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}`).then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
 
   const create = async (e) => {
@@ -82,6 +86,15 @@ export function Leads() {
             <button type="button" className={view === 'kanban' ? 'on' : ''} onClick={() => setView('kanban')}>Kanban</button>
             <button type="button" className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}>Table</button>
           </div>
+          <select
+            className="select-sm"
+            value={st}
+            onChange={(e) => setSt(e.target.value)}
+            style={{ minWidth: 140 }}
+          >
+            <option value="ALL">All Statuses</option>
+            {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           <input
             className="search-input"
             placeholder="Search leads…"
@@ -339,15 +352,33 @@ export function LeadDetail() {
 export function Customers() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState('');
+  const [typeFilter, setTypeFilter] = useState('ALL');
   useEffect(() => { api.customers().then(setRows); }, []);
 
-  const list = rows.filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()));
+  const list = rows.filter((c) => {
+    if (typeFilter !== 'ALL' && c.type !== typeFilter) return false;
+    if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+
+  const types = ['Enterprise', 'SMB', 'Direct'];
 
   return (
     <div>
       <div className="page-head">
         <h2>Institutions</h2>
-        <input className="search-input" placeholder="Search institutions…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            className="select-sm"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{ minWidth: 140 }}
+          >
+            <option value="ALL">All Types</option>
+            {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <input className="search-input" placeholder="Search institutions…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
       </div>
 
       <table>
@@ -376,15 +407,25 @@ export function Customer360({ fixedId }) {
   const [c, setC] = useState(null);
   const [tab, setTab] = useState('Overview');
   const [msg, setMsg] = useState('');
+  const [leaveRequests, setLeaveRequests] = useState([]);
 
-  // Institutions never manage students, so the name-by-name roster tab is
-  // hidden for them — the aggregate student count stays on the Overview tab.
   const isInstitution = user?.role === 'institution';
   const TABS = isInstitution
-    ? ['Overview', 'Training', 'Finance', 'Activity']
-    : ['Overview', 'Training', 'Students', 'Finance', 'Activity'];
+    ? ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Leave', 'Activity']
+    : ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Activity'];
 
   useEffect(() => { api.customer(id).then(setC).catch((e) => setMsg(e.message)); }, [id]);
+
+  useEffect(() => {
+    if (isInstitution && tab === 'Leave') {
+      api.leaveRequests()
+        .then((data) => {
+          const institutionLeaves = data.filter(l => l.customer_id === id);
+          setLeaveRequests(institutionLeaves);
+        })
+        .catch(() => setLeaveRequests([]));
+    }
+  }, [tab, id, isInstitution]);
 
   if (!c) return <div className={msg ? 'err' : 'loading'}>{msg || 'Loading customer 360…'}</div>;
 
@@ -439,18 +480,41 @@ export function Customer360({ fixedId }) {
         </>
       )}
 
-      {tab === 'Students' && !isInstitution && (
+      {tab === 'Students' && (
         <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h4 style={{ margin: 0 }}>Enrolled Students ({c.students.length})</h4>
+            <Link to="/students" className="btn sm">Manage & Add Students →</Link>
+          </div>
           <table>
-            <thead><tr><th>ID</th><th>Name</th><th>Email</th></tr></thead>
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
             <tbody>
               {c.students.map((s) => (
-                <tr key={s.id}><td>{s.id}</td><td><b>{s.name}</b></td><td>{s.email}</td></tr>
+                <tr key={s.id}>
+                  <td className="mono">{s.id}</td>
+                  <td><b>{s.name}</b></td>
+                  <td>{s.email || '—'}</td>
+                  <td><Link to="/students" className="btn sm ghost">View Details</Link></td>
+                </tr>
               ))}
             </tbody>
           </table>
-          {c.students.length === 0 && <p className="empty">No students enrolled yet.</p>}
+          {c.students.length === 0 && <p className="empty">No students enrolled yet. Go to Students to register learners.</p>}
         </>
+      )}
+
+      {tab === 'Attendance' && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: 0 }}>Attendance Tracking & Reports</h4>
+              <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+                View complete student attendance rates, low-attendance interventions, and daily logs.
+              </p>
+            </div>
+            <Link to="/attendance-details" className="btn">Open Full Attendance Details →</Link>
+          </div>
+        </div>
       )}
 
       {tab === 'Finance' && (
@@ -497,6 +561,64 @@ export function Customer360({ fixedId }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'Leave' && isInstitution && (
+        <div className="card">
+          <h4>Trainer Leave Requests</h4>
+          <p className="meta" style={{ marginBottom: 16 }}>
+            View leave applications submitted by trainers assigned to your institution's batches.
+          </p>
+          {leaveRequests.length === 0 ? (
+            <p className="empty">No leave requests found for this institution.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Trainer</th>
+                  <th>Leave Type</th>
+                  <th>Period</th>
+                  <th>Days</th>
+                  <th>Reason</th>
+                  <th>Applied Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaveRequests.map((lr) => (
+                  <tr key={lr.id}>
+                    <td className="mono">{lr.id}</td>
+                    <td>
+                      <b>{lr.trainer_name}</b>
+                      <small style={{ display: 'block', color: '#64748b' }}>{lr.trainer_id}</small>
+                    </td>
+                    <td>
+                      <span className="chip" style={{ background: '#e0e7ff', color: '#3730a3' }}>
+                        {lr.type}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>
+                        {lr.from_date} {lr.from_date !== lr.to_date ? `→ ${lr.to_date}` : ''}
+                      </span>
+                    </td>
+                    <td><b>{lr.days} d</b></td>
+                    <td style={{ maxWidth: 220, fontSize: 13, color: '#334155' }}>
+                      {lr.reason || '—'}
+                    </td>
+                    <td style={{ fontSize: 13, color: '#64748b' }}>{lr.applied_on}</td>
+                    <td>
+                      <span className={'chip ' + (lr.status === 'APPROVED' ? 'PRESENT' : lr.status === 'PENDING' ? 'LATE' : 'ABSENT')}>
+                        {lr.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

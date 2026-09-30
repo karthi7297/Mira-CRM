@@ -14,13 +14,13 @@ export const NAV = [
   { to: '/customers', label: 'Institutions', roles: ['organization'] },
   { to: '/college', label: 'My College', roles: ['institution'] },
   { to: '/programs', label: 'Programs', roles: ['organization', 'trainer'] },
+  { to: '/trainers', label: 'Trainers', roles: ['organization'] },
   { to: '/batches', label: 'Batches', roles: ['organization', 'trainer', 'institution'] },
-  // Student management is a trainer's job. Organization and institution never
-  // manage students directly — at their scale they read the aggregate figures
-  // on their dashboard and the per-batch roster inside Batches.
-  { to: '/students', label: 'My Students', roles: ['trainer'] },
-  // Attendance stays available to Rampex as a fallback, plus the delivering trainer.
-  { to: '/attendance', label: 'Attendance', roles: ['organization', 'trainer'] },
+  { to: '/students', label: 'Students', roles: ['trainer', 'institution'] },
+  { to: '/attendance-details', label: 'Attendance Details', roles: ['institution'] },
+  { to: '/attendance', label: 'Attendance', roles: ['trainer'] },
+  { to: '/leave-approval', label: 'Leave Approval', roles: ['organization'] },
+  { to: '/my-leave', label: 'My Leave', roles: ['trainer'] },
   { to: '/my-finance', label: 'My Finance', roles: ['trainer'] },
   { to: '/quotations', label: 'Quotations', roles: ['organization', 'institution'] },
   { to: '/invoices', label: 'Invoices', roles: ['organization', 'institution'] },

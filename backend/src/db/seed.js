@@ -231,6 +231,12 @@ async function initialize(db) {
   const c = await db.count('SELECT COUNT(*) FROM users');
   if (c === 0) {
     await db.transaction((tx) => seedDemoData(tx));
+    try {
+      const enrich = require('./enrich-mock');
+      await enrich();
+    } catch (e) {
+      console.error('[db] enrich error:', e);
+    }
     console.log(`[db] seeded demo data (db-prd §7) on ${db.driver}`);
   }
 }
