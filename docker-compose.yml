@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: edunexus-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: edunexus
+      MYSQL_USER: edunexus
+      MYSQL_PASSWORD: edunexus
+    ports:
+      - "3306:3306"
+    volumes:
+      - edunexus-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  edunexus-mysql-data:
