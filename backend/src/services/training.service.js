@@ -1,11 +1,11 @@
 /**
  * Training domain: programs, trainers, batches, students, enrollments, attendance.
  * Scope rules (db-prd §0/§3): trainers see only assigned batches (dev port:
- * batches.trainer_id); students see only their enrollments. STUDENT MANAGEMENT
- * IS THE TRAINER'S JOB — students belong to the trainer who delivers their
- * batch, so org/institution never get a name-by-name roster (they see counts on
- * the dashboard and Customer 360 instead). Attendance may be marked by the
- * assigned trainer, or by Rampex as a fallback (FLOW I). Async facade throughout.
+ * batches.trainer_id); students see only their enrollments. STUDENT records are
+ * delivered by the trainer, but Rampex (organization) holds full platform-wide
+ * visibility and management (roster, reports, enrollment, attendance fallback).
+ * Attendance may be marked by the assigned trainer, the owning institution's
+ * staff for their own batches, or by Rampex as a fallback (FLOW I).
  */
 const db = require('../db');
 const { badRequest, conflict, forbidden, notFound } = require('../utils/http');
@@ -114,6 +114,69 @@ async function deleteTrainer(id) {
   }
   await db.run('DELETE FROM trainers WHERE id = ?', [id]);
   return { deleted: true, id };
+}
+
+/**
+ * Trainer 360 for Rampex (organization only): profile + assigned batches
+ * (with student counts + attendance) + students taught (with attendance) +
+ * payouts/claims + leave requests. One call renders the whole detail screen.
+ */
+async function getTrainerDetail(id) {
+  const t = await db.get('SELECT id, name, expertise, email, phone FROM trainers WHERE id = ?', [id]);
+  if (!t) throw notFound('Trainer not found');
+  const batches = await db.query(
+    `SELECT b.*, p.name AS program_name, c.name AS customer_name,
+            (SELECT COUNT(*) FROM enrollments e WHERE e.batch_id = b.id) AS student_count
+       FROM batches b
+       LEFT JOIN programs p ON p.id = b.program_id
+       LEFT JOIN customers c ON c.id = b.customer_id
+      WHERE b.trainer_id = ? ORDER BY b.id`,
+    [id]
+  );
+  const batchRows = await Promise.all(batches.map(async (b) => {
+    const r = await db.get(
+      `SELECT COUNT(*) AS t, SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) AS p
+         FROM attendance WHERE batch_id = ?`,
+      [b.id]
+    );
+    return { ...b, attendance: pct(Number(r.p || 0), Number(r.t || 0)) };
+  }));
+  const bidList = batchRows.map((b) => b.id);
+  let students = [];
+  if (bidList.length) {
+    const ph = bidList.map(() => '?').join(',');
+    const rows = await db.query(
+      `SELECT DISTINCT s.id, s.name, s.email, s.phone, s.customer_id FROM students s
+         JOIN enrollments e ON e.student_id = s.id
+        WHERE e.batch_id IN (${ph}) ORDER BY s.id`,
+      bidList
+    );
+    students = await Promise.all(rows.map(async (s) => {
+      const r = await db.get(
+        `SELECT COUNT(*) AS t, SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) AS p
+           FROM attendance WHERE student_id = ? AND batch_id IN (${ph})`,
+        [s.id, ...bidList]
+      );
+      return { ...s, attendance: pct(Number(r.p || 0), Number(r.t || 0)) };
+    }));
+  }
+  const expenses = await db.query('SELECT * FROM expenses WHERE trainer_id = ? ORDER BY date DESC, expense_key DESC', [id]);
+  return {
+    ...t,
+    batches: batchRows,
+    students,
+    summary: {
+      batches: batchRows.length,
+      students: students.length,
+      attendance: batchRows.length
+        ? Math.round(batchRows.reduce((s, b) => s + Number(b.attendance || 0), 0) / batchRows.length)
+        : 0,
+      paid_out: expenses.filter((e) => e.status === 'PAID').reduce((s, e) => s + Number(e.amount || 0), 0),
+      pending_claims: expenses.filter((e) => e.status === 'PENDING').reduce((s, e) => s + Number(e.amount || 0), 0),
+    },
+    finance: expenses,
+    leave: listLeaveRequests().filter((l) => l.trainer_id === id),
+  };
 }
 
 // ---------- Batches ----------
@@ -362,10 +425,40 @@ async function listStudents(scope, opts = {}) {
 
 /**
  * Institution: add a student under their own customer_id.
+ * Organization (Rampex): add anywhere — customer_id or batch_id required.
  * Trainer: add + enrol into batch (existing behaviour).
  */
 async function createStudent(scope, body = {}) {
   requireFields(body, ['name']);
+  // Organization manages students platform-wide (batches, capacity enforced).
+  if (scope.role === 'organization') {
+    return db.transaction(async (tx) => {
+      let customerId = str(body.customer_id) || null;
+      if (body.batch_id) {
+        const batch = await tx.get(
+          'SELECT customer_id, capacity FROM batches WHERE id = ?',
+          [str(body.batch_id)]
+        );
+        if (!batch) throw badRequest('Unknown batch_id');
+        customerId = customerId || batch.customer_id;
+        const count = await tx.count('SELECT COUNT(*) FROM enrollments WHERE batch_id = ?', [str(body.batch_id)]);
+        if (count >= batch.capacity) throw conflict('Batch is at full capacity');
+      }
+      if (!customerId) throw badRequest('customer_id or batch_id required to place the student');
+      if (!(await tx.get('SELECT 1 AS ok FROM customers WHERE id = ?', [customerId]))) {
+        throw badRequest('Unknown customer_id');
+      }
+      const id = await nid(tx, 'STU', 'students');
+      await tx.run(
+        'INSERT INTO students (id, name, email, phone, customer_id) VALUES (?,?,?,?,?)',
+        [id, str(body.name), str(body.email) || null, str(body.phone) || null, customerId]
+      );
+      if (body.batch_id) {
+        await tx.run('INSERT INTO enrollments (student_id, batch_id) VALUES (?,?)', [id, str(body.batch_id)]);
+      }
+      return tx.get('SELECT * FROM students WHERE id = ?', [id]);
+    });
+  }
   // Institution can add students to their own college
   if (scope.role === 'institution') {
     if (!scope.customer_id) throw forbidden('No institution linked to this login');
@@ -419,7 +512,8 @@ async function createStudent(scope, body = {}) {
  */
 async function createEnrollment(scope, body = {}) {
   requireFields(body, ['student_id', 'batch_id']);
-  if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer can enrol students');
+  const isOrg = scope.role === 'organization';
+  if (scope.role !== 'trainer' && !isOrg) throw forbidden('Only Rampex or the assigned trainer can enrol students');
   const student = await db.get('SELECT customer_id FROM students WHERE id = ?', [str(body.student_id)]);
   if (!student) throw badRequest('Unknown student_id');
   const batch = await db.get(
@@ -427,7 +521,7 @@ async function createEnrollment(scope, body = {}) {
     [str(body.batch_id)]
   );
   if (!batch) throw badRequest('Unknown batch_id');
-  if (batch.trainer_id !== scope.trainer_id) {
+  if (!isOrg && batch.trainer_id !== scope.trainer_id) {
     throw forbidden('You can only enrol into your own batches');
   }
   if (student.customer_id !== batch.customer_id) {
@@ -654,7 +748,7 @@ async function bulkCreateStudents(scope, body = {}) {
 
 module.exports = {
   listPrograms, createProgram, updateProgram, deleteProgram,
-  listTrainers, createTrainer, updateTrainer, deleteTrainer,
+  listTrainers, getTrainerDetail, createTrainer, updateTrainer, deleteTrainer,
   listBatches, getBatch, createBatch, updateBatch, deleteBatch,
   listStudents, createStudent, updateStudent, deleteStudent, createEnrollment, listAttendance, saveAttendance, ATTENDANCE_STATUSES,
   attendanceSummary, listLeaveRequests, updateLeaveRequest, createLeaveRequest, bulkCreateStudents,

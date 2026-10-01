@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr, toast, toastError } from '../api';
+import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
 
 function filterInstitutionLeaves(leaves, customerId) {
@@ -609,8 +610,8 @@ export function Customer360({ fixedId }) {
                             <span style={{ color: '#94a3b8', fontSize: 13 }}>Not graded yet</span>
                           )}
                         </td>
-                        <td>
-                          <b>{s.sessions ? `${s.attendance}%` : '—'}</b>
+                        <td style={{ minWidth: 150 }}>
+                          {s.sessions ? <AttendanceBar value={s.attendance} width={120} /> : '—'}
                           <small style={{ display: 'block', color: '#94a3b8' }}>
                             {s.sessions} session{s.sessions === 1 ? '' : 's'}
                           </small>

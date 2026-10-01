@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
-import { BarChart, LineChart, PieChart, KPICard } from '../widgets';
+import { BarChart, LineChart, PieChart, KPICard, AttendanceBar } from '../widgets';
+import { printExecutiveReport, printInvoice, printQuotation, printReceipt } from '../report';
 
 export function Quotations() {
   const { user } = useAuth();
@@ -123,11 +124,11 @@ export function Quotations() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      <div className="cards">
-        <KPICard title="Total Pipeline Value" value={inr(totalValue)} subtitle={`${rows.length} quotation documents`} color="var(--accent)" />
-        <KPICard title="Accepted Proposals" value={inr(acceptedValue)} subtitle={`${conversionRate}% conversion rate`} trend={`${conversionRate - 25}%`} trendUp={conversionRate >= 25} color="var(--ok)" />
-        <KPICard title="Sent / In Review" value={rows.filter(q => q.status === 'SENT').length} subtitle="Awaiting customer approval" color="var(--info)" />
-        <KPICard title="Drafts" value={rows.filter(q => q.status === 'DRAFT').length} subtitle="Internal proposals" color="var(--warn)" />
+      <div className="cards kpi-strip">
+        <KPICard compact title="Total Pipeline Value" value={inr(totalValue)} subtitle={`${rows.length} quotation documents`} color="var(--accent)" />
+        <KPICard compact title="Accepted Proposals" value={inr(acceptedValue)} subtitle={`${conversionRate}% conversion rate`} trend={`${conversionRate - 25}%`} trendUp={conversionRate >= 25} color="var(--ok)" />
+        <KPICard compact title="Sent / In Review" value={rows.filter(q => q.status === 'SENT').length} subtitle="Awaiting customer approval" color="var(--info)" />
+        <KPICard compact title="Drafts" value={rows.filter(q => q.status === 'DRAFT').length} subtitle="Internal proposals" color="var(--warn)" />
       </div>
 
       <div className="grid2" style={{ marginTop: 16 }}>
@@ -139,8 +140,9 @@ export function Quotations() {
                 data={statusData}
                 keys={['value']}
                 colors={['#f59e0b', '#3b82f6', '#16a34a', '#ef4444']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="status"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No pipeline data</div>
@@ -157,7 +159,7 @@ export function Quotations() {
                 labelKey="status"
                 valueKey="count"
                 colors={['#f59e0b', '#3b82f6', '#16a34a', '#ef4444']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No status data</div>
@@ -276,7 +278,7 @@ export function Quotations() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
-              <button type="button" className="btn ghost" onClick={() => window.print()}>Print Quotation</button>
+              <button type="button" className="btn ghost" onClick={() => printQuotation(viewQuo)}>Print Quotation</button>
               <div style={{ display: 'flex', gap: 8 }}>
                 {user?.role === 'organization' && viewQuo.status === 'DRAFT' && (
                   <button type="button" className="btn ghost" onClick={() => updateStatus(viewQuo.id, 'SENT')}>Mark as Sent</button>
@@ -436,11 +438,11 @@ export function Invoices() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      <div className="cards">
-        <KPICard title="Total Billed" value={inr(totalBilled)} subtitle={`${rows.length} invoices issued`} color="var(--accent)" />
-        <KPICard title="Collected" value={inr(totalPaid)} subtitle={`${collectionRate}% recovery rate`} trend={`${collectionRate - 60}%`} trendUp={collectionRate >= 60} color="var(--ok)" />
-        <KPICard title="Outstanding Balance" value={inr(totalOutstanding)} subtitle="Receivables pending" color="var(--warn)" />
-        <KPICard title="Overdue Invoices" value={overdueCount} subtitle="Critical collection focus" color="var(--bad)" />
+      <div className="cards kpi-strip">
+        <KPICard compact title="Total Billed" value={inr(totalBilled)} subtitle={`${rows.length} invoices issued`} color="var(--accent)" />
+        <KPICard compact title="Collected" value={inr(totalPaid)} subtitle={`${collectionRate}% recovery rate`} trend={`${collectionRate - 60}%`} trendUp={collectionRate >= 60} color="var(--ok)" />
+        <KPICard compact title="Outstanding Balance" value={inr(totalOutstanding)} subtitle="Receivables pending" color="var(--warn)" />
+        <KPICard compact title="Overdue Invoices" value={overdueCount} subtitle="Critical collection focus" color="var(--bad)" />
       </div>
 
       <div className="grid2" style={{ marginTop: 16 }}>
@@ -452,8 +454,9 @@ export function Invoices() {
                 data={statusData}
                 keys={['value']}
                 colors={['#ef4444', '#f59e0b', '#16a34a', '#dc2626']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="status"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No invoice data</div>
@@ -470,7 +473,7 @@ export function Invoices() {
                 labelKey="status"
                 valueKey="count"
                 colors={['#ef4444', '#f59e0b', '#16a34a', '#dc2626']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No status data</div>
@@ -707,7 +710,7 @@ export function InvoiceDetail() {
         </div>
 
         <div className="mt no-print" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn ghost" onClick={() => window.print()}>Print Receipt</button>
+            <button type="button" className="btn ghost" onClick={() => printInvoice(inv)}>Print Receipt</button>
           {inv.outstanding > 0 && (
             <button type="button" className="btn" onClick={() => { setPay({ method: 'Bank Transfer', amount: inv.outstanding }); setShow(true); }}>
               Record Payment
@@ -828,11 +831,11 @@ export function Payments() {
         )}
       </div>
 
-      <div className="cards">
-        <KPICard title="Total Collected" value={inr(totalCollected)} subtitle={`${rows.length} transactions processed`} color="var(--accent)" />
-        <KPICard title="Bank Transfers" value={inr(rows.filter(p => p.method === 'Bank Transfer').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'Bank Transfer').length} settlements`} color="var(--info)" />
-        <KPICard title="UPI & Digital" value={inr(rows.filter(p => p.method === 'UPI').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'UPI').length} instant payments`} color="var(--ok)" />
-        <KPICard title="Cheque & Cash" value={inr(rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).length} cleared receipts`} color="var(--warn)" />
+      <div className="cards kpi-strip">
+        <KPICard compact title="Total Collected" value={inr(totalCollected)} subtitle={`${rows.length} transactions processed`} color="var(--accent)" />
+        <KPICard compact title="Bank Transfers" value={inr(rows.filter(p => p.method === 'Bank Transfer').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'Bank Transfer').length} settlements`} color="var(--info)" />
+        <KPICard compact title="UPI & Digital" value={inr(rows.filter(p => p.method === 'UPI').reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => p.method === 'UPI').length} instant payments`} color="var(--ok)" />
+        <KPICard compact title="Cheque & Cash" value={inr(rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).reduce((acc, p) => acc + Number(p.amount || 0), 0))} subtitle={`${rows.filter(p => ['Cheque', 'Cash'].includes(p.method)).length} cleared receipts`} color="var(--warn)" />
       </div>
 
       <div className="grid2" style={{ marginTop: 16 }}>
@@ -844,8 +847,9 @@ export function Payments() {
                 data={methodData}
                 keys={['value']}
                 colors={['#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="method"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No payment data</div>
@@ -861,8 +865,9 @@ export function Payments() {
                 data={dailyData}
                 keys={['amount']}
                 colors={['#16a34a']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="date"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No daily data</div>
@@ -881,7 +886,7 @@ export function Payments() {
                 labelKey="method"
                 valueKey="value"
                 colors={['#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No method data</div>
@@ -1002,7 +1007,7 @@ export function Payments() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
-              <button type="button" className="btn ghost" onClick={() => window.print()}>Print Voucher</button>
+              <button type="button" className="btn ghost" onClick={() => printReceipt(selectedReceipt, rows)}>Print Voucher</button>
               <button type="button" className="btn" onClick={() => setSelectedReceipt(null)}>Close</button>
             </div>
           </div>
@@ -1088,11 +1093,11 @@ export function Expenses() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      <div className="cards">
-        <KPICard title="Total Expenses" value={inr(totalExpense)} subtitle={`${rows.length} expense line items`} color="var(--accent)" />
-        <KPICard title="Trainer Payouts" value={inr(trainerExpense)} subtitle={`${totalExpense > 0 ? Math.round((trainerExpense / totalExpense) * 100) : 0}% of outlays`} color="var(--info)" />
-        <KPICard title="Pending Claims" value={inr(pendingClaims)} subtitle={`${rows.filter(x => x.status === 'PENDING').length} awaiting approval`} color="var(--warn)" />
-        <KPICard title="Settled / Paid" value={inr(rows.filter(x => x.status === 'PAID').reduce((acc, x) => acc + Number(x.amount || 0), 0))} subtitle="Processed expenses" color="var(--ok)" />
+      <div className="cards kpi-strip">
+        <KPICard compact title="Total Expenses" value={inr(totalExpense)} subtitle={`${rows.length} expense line items`} color="var(--accent)" />
+        <KPICard compact title="Trainer Payouts" value={inr(trainerExpense)} subtitle={`${totalExpense > 0 ? Math.round((trainerExpense / totalExpense) * 100) : 0}% of outlays`} color="var(--info)" />
+        <KPICard compact title="Pending Claims" value={inr(pendingClaims)} subtitle={`${rows.filter(x => x.status === 'PENDING').length} awaiting approval`} color="var(--warn)" />
+        <KPICard compact title="Settled / Paid" value={inr(rows.filter(x => x.status === 'PAID').reduce((acc, x) => acc + Number(x.amount || 0), 0))} subtitle="Processed expenses" color="var(--ok)" />
       </div>
 
       <div className="grid2" style={{ marginTop: 16 }}>
@@ -1104,8 +1109,9 @@ export function Expenses() {
                 data={categoryData}
                 keys={['value']}
                 colors={['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8', '#ef4444']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="category"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No expense data</div>
@@ -1122,7 +1128,7 @@ export function Expenses() {
                 labelKey="category"
                 valueKey="value"
                 colors={['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8', '#ef4444']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No category data</div>
@@ -1141,7 +1147,7 @@ export function Expenses() {
                 labelKey="status"
                 valueKey="value"
                 colors={['#f59e0b', '#3b82f6', '#ef4444', '#16a34a']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No status data</div>
@@ -1157,8 +1163,9 @@ export function Expenses() {
                 data={statusData}
                 keys={['count']}
                 colors={['#f59e0b', '#3b82f6', '#ef4444', '#16a34a']}
-                height={180}
+                height={150}
                 showLegend={false}
+                labelKey="status"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No status data</div>
@@ -1293,7 +1300,7 @@ export function TrainerFinance() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      <div className="cards">
+      <div className="cards kpi-strip">
         <div className="card"><h4>Total Paid to Me</h4><b>{inr(d.total_paid)}</b></div>
         <div className="card"><h4>Pending Claims</h4><b>{inr(d.pending)}</b></div>
       </div>
@@ -1348,6 +1355,7 @@ export function TrainerFinance() {
 }
 
 export function Reports() {
+  const { user } = useAuth();
   const [d, setD] = useState(null);
   const [top, setTop] = useState([]);
   const [trend, setTrend] = useState([]);
@@ -1392,16 +1400,30 @@ export function Reports() {
       <div className="page-head">
         <div>
           <h2>Executive Reports & Analytics</h2>
-          <p className="sub">Platform-wide revenue, collections, student academic excellence, and margin projections.</p>
+          <p className="sub">{user?.role === 'institution' ? 'Your institution\u2019s revenue, collections, student academic excellence, and margin projections.' : 'Platform-wide revenue, collections, student academic excellence, and margin projections.'}</p>
         </div>
-        <button type="button" className="btn ghost no-print" onClick={() => window.print()}>Print Report</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="btn ghost no-print" onClick={() => downloadCSV('executive-report.csv', [
+            { Section: 'KPI', Item: 'Revenue', Value: d.revenue },
+            { Section: 'KPI', Item: 'Collected', Value: d.collected },
+            { Section: 'KPI', Item: 'Outstanding', Value: d.outstanding },
+            { Section: 'KPI', Item: 'Net', Value: d.net ?? '' },
+            { Section: 'KPI', Item: 'Expenses', Value: d.expenses ?? '' },
+            { Section: 'KPI', Item: 'Total Leads', Value: d.totalLeads ?? '' },
+            { Section: 'KPI', Item: 'Students', Value: d.totalStudents ?? d.studentCount ?? '' },
+            ...trend.slice(-12).map((t) => ({ Section: 'Trend', Item: t.month, Value: `billed=${t.billed} collected=${t.collected}` })),
+            ...(d.outstandingInvoices || []).map((i) => ({ Section: 'Outstanding', Item: `${i.id} ${i.customer_name || ''}`, Value: i.outstanding })),
+            ...(top || []).map((s, idx) => ({ Section: 'Top Student', Item: `#${idx + 1} ${s.name}`, Value: `attendance=${s.attendance} avg=${s.avg_score ?? ''}` })),
+          ])}>Export CSV</button>
+          <button type="button" className="btn ghost no-print" onClick={() => printExecutiveReport({ d, top, trend, who: user?.role === 'institution' ? (d.customer?.name || 'Institution') : 'Rampex Management' })}>Print Report</button>
+        </div>
       </div>
 
-      <div className="cards">
-        <KPICard title="Revenue" value={inr(d.revenue)} subtitle={`${d.totalLeads || 0} active leads`} color="var(--accent)" />
-        <KPICard title="Collected" value={inr(d.collected)} subtitle={`${collectionRate}% collection rate`} trend={`${Math.round((collectionRate - 70) * 10) / 10}%`} trendUp={collectionRate >= 70} color="var(--ok)" />
-        <KPICard title="Outstanding" value={inr(d.outstanding)} subtitle={`${d.outstandingInvoices?.length || 0} pending invoices`} color="var(--warn)" />
-        <KPICard title="Net Operating Margin" value={inr(d.net)} subtitle={`${netMargin}% margin · expenses ${inr(d.expenses)}`} color="var(--info)" />
+      <div className="cards kpi-strip">
+        <KPICard compact title="Revenue" value={inr(d.revenue)} subtitle={`${d.totalLeads || 0} active leads`} color="var(--accent)" />
+        <KPICard compact title="Collected" value={inr(d.collected)} subtitle={`${collectionRate}% collection rate`} trend={`${Math.round((collectionRate - 70) * 10) / 10}%`} trendUp={collectionRate >= 70} color="var(--ok)" />
+        <KPICard compact title="Outstanding" value={inr(d.outstanding)} subtitle={`${d.outstandingInvoices?.length || 0} pending invoices`} color="var(--warn)" />
+        <KPICard compact title="Net Operating Margin" value={inr(d.net)} subtitle={`${netMargin}% margin · expenses ${inr(d.expenses)}`} color="var(--info)" />
       </div>
 
       <div className="grid2" style={{ marginTop: 16 }}>
@@ -1425,6 +1447,7 @@ export function Reports() {
               colors={['#16a34a']}
               height={100}
               showLegend={false}
+              labelKey="month"
             />
           </div>
         </div>
@@ -1437,7 +1460,8 @@ export function Reports() {
                 data={revenueChartData}
                 keys={['billed', 'collected']}
                 colors={['#3b82f6', '#16a34a']}
-                height={180}
+                height={150}
+                labelKey="month"
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No trend data available yet</div>
@@ -1456,7 +1480,7 @@ export function Reports() {
                 labelKey="label"
                 valueKey="value"
                 colors={['#0e7268', '#17a493', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#94a3b8']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No expense data available</div>
@@ -1473,7 +1497,7 @@ export function Reports() {
                 labelKey="label"
                 valueKey="value"
                 colors={['#16a34a', '#3b82f6', '#f59e0b']}
-                height={200}
+                height={170}
               />
             ) : (
               <div className="empty" style={{ padding: 40 }}>No payment data available</div>
@@ -1515,7 +1539,7 @@ export function Reports() {
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h4>Top Students · Platform-wide Excellence</h4>
+        <h4>Top Students · {user?.role === 'institution' ? 'Your Institution\u2019s Excellence' : 'Platform-wide Excellence'}</h4>
         {top.length === 0 && <p className="empty">No student score records available yet.</p>}
         <table>
           <thead><tr><th>Rank</th><th>Student</th><th>Batch</th><th>Attendance</th><th>Avg Score</th></tr></thead>
@@ -1525,7 +1549,7 @@ export function Reports() {
                 <td><b>#{idx + 1}</b></td>
                 <td><b>{s.name}</b></td>
                 <td>{s.batch_id || '—'}</td>
-                <td><span className="chip PRESENT">{s.attendance}%</span></td>
+                <td style={{ minWidth: 150 }}><AttendanceBar value={s.attendance} width={120} /></td>
                 <td><b>{s.avg_score ?? '—'}{s.avg_score != null && '%'}</b></td>
               </tr>
             ))}

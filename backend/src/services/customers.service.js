@@ -99,9 +99,6 @@ async function getCustomer360(scope, customerId) {
   const overdueDays = maxOverdueDays(invoices);
 
   const studentCount = students.length;
-  if (scope.role === 'institution') {
-    students = [];
-  }
 
   // Top 10 students — ranked by attendance % then average score, the same
   // rule the platform-wide report uses (db-prd §3b / dashboard.topStudents),
