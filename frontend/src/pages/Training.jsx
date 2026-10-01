@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, inr, downloadCSV, toast } from '../api';
+import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 function parseCSV(csvText) {
@@ -67,6 +67,7 @@ export function Programs() {
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editF, setEditF] = useState({});
 
@@ -76,9 +77,12 @@ export function Programs() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     setMsg('');
     try { await api.createProgram(f); setF({}); toast('✓ Program created'); load(); }
     catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const openEdit = (p) => {
@@ -125,7 +129,7 @@ export function Programs() {
           <input required placeholder="Program name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
           <input placeholder="Duration" value={f.duration || ''} onChange={(e) => setF({ ...f, duration: e.target.value })} />
           <input placeholder="Fee per student" type="number" value={f.fee_per_student || ''} onChange={(e) => setF({ ...f, fee_per_student: +e.target.value })} />
-          <span><button className="btn">+ Create Program</button></span>
+          <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : '+ Create Program'}</button></span>
         </form>
       )}
 
@@ -302,6 +306,7 @@ export function Batches() {
   const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [progs, setProgs] = useState([]);
   const [custs, setCusts] = useState([]);
   const [trs, setTrs] = useState([]);
@@ -336,6 +341,8 @@ export function Batches() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     setMsg('');
     try {
       if (editing) {
@@ -351,6 +358,8 @@ export function Batches() {
       api.batches().then(setRows);
     } catch (ex) {
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -458,6 +467,7 @@ export function BatchDetail() {
   const [rep, setRep] = useState(null);
   const [sel, setSel] = useState('');
   const [ints, setInts] = useState([]);
+  const [busy, setBusy] = useState(false);
 
   const load = () => {
     api.batch(id).then(setB);
@@ -468,17 +478,23 @@ export function BatchDetail() {
 
   const enroll = async (e) => {
     e.preventDefault();
-    try { await api.createStudent({ ...f, batch_id: id }); setF({}); setMsg('✓ Student enrolled'); load(); }
+    if (busy) return;
+    setBusy(true);
+    try { await api.createStudent({ ...f, batch_id: id }); setF({}); toast('Student enrolled'); load(); }
     catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
   const addSess = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     try {
       await api.createSession({ batch_id: id, ...sf });
       setSf({});
-      setMsg('✓ Session scheduled');
+      toast('Session scheduled');
       api.sessions(`?batch_id=${id}`).then(setSess);
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
   const report = async (sid) => {
     setSel(sid);
@@ -540,7 +556,7 @@ export function BatchDetail() {
             <input required placeholder="Student name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
             <input placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} />
             <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
-            <span><button className="btn">Enrol</button></span>
+            <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Enrolling…' : 'Enrol'}</button></span>
           </form>
         </>
       )}
@@ -558,7 +574,7 @@ export function BatchDetail() {
               <td>{s.id}</td>
               <td><b>{s.name}</b></td>
               <td>{s.email}</td>
-              <td>{canReport && <button className="btn ghost" onClick={() => report(s.id)}>Report</button>}</td>
+              <td>{canReport && <button type="button" className="btn ghost" onClick={() => report(s.id)}>Report</button>}</td>
             </tr>
           ))}
         </tbody>
@@ -574,7 +590,7 @@ export function BatchDetail() {
           </p>
           <p className="meta">Weak areas: {rep.weak_areas.map((w) => `${w.topic} (${w.pct}%)`).join(', ') || '—'}</p>
           <p className="meta">Interests: {rep.interests.map((i) => i.body).join(' · ') || '—'}</p>
-          <button className="btn ghost" onClick={() => { setRep(null); setSel(''); }}>Close</button>
+          <button type="button" className="btn ghost" onClick={() => { setRep(null); setSel(''); }}>Close</button>
         </div>
       )}
 
@@ -601,7 +617,7 @@ export function BatchDetail() {
           <input placeholder="End (13:00)" value={sf.end_time || ''} onChange={(e) => setSf({ ...sf, end_time: e.target.value })} />
           <input placeholder="Location" value={sf.location || ''} onChange={(e) => setSf({ ...sf, location: e.target.value })} />
           <input placeholder="Topic" value={sf.topic || ''} onChange={(e) => setSf({ ...sf, topic: e.target.value })} />
-          <span><button className="btn">Schedule Session</button></span>
+          <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Scheduling…' : 'Schedule Session'}</button></span>
         </form>
       )}
 
@@ -632,6 +648,7 @@ export function Students() {
   const [showAdd, setShowAdd] = useState(false);
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [addForm, setAddForm] = useState({});
+  const [formBusy, setFormBusy] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [reportStudent, setReportStudent] = useState(null);
 
@@ -647,6 +664,9 @@ export function Students() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (formBusy) return;
+    if (!String(addForm.name || '').trim()) { setErr('Student name is required'); return; }
+    setFormBusy(true);
     setErr('');
     try {
       const created = await api.createStudent({
@@ -655,7 +675,7 @@ export function Students() {
         phone: addForm.phone,
         batch_id: addForm.batch_id || undefined,
       });
-      // Credentials email is best-effort: warn (with the resend hint) when it fails.
+// Credentials email is best-effort: warn (with the resend hint) when it fails.
       if (created.emailSent) toast(created.message);
       else setErr(created.message);
       setShowAdd(false);
@@ -663,6 +683,8 @@ export function Students() {
       load();
     } catch (ex) {
       setErr(ex.message);
+    } finally {
+      setFormBusy(false);
     }
   };
 
@@ -680,6 +702,8 @@ export function Students() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    if (formBusy) return;
+    setFormBusy(true);
     setErr('');
     try {
       await api.patchStudent(editStudent.id, {
@@ -687,11 +711,13 @@ export function Students() {
         email: editStudent.email,
         phone: editStudent.phone,
       });
-      toast(`✓ Student ${editStudent.id} updated!`);
+      toast(`Student ${editStudent.id} updated!`);
       setEditStudent(null);
       load();
     } catch (ex) {
       setErr(ex.message);
+    } finally {
+      setFormBusy(false);
     }
   };
 
@@ -735,7 +761,7 @@ export function Students() {
             </Link>
           )}
           {rows.length > 0 && (
-            <button
+            <button type="button"
               className="btn ghost no-print"
               onClick={() =>
                 downloadCSV(
@@ -747,8 +773,8 @@ export function Students() {
               Export CSV
             </button>
           )}
-          <button className="btn" onClick={() => setShowBulkAdd(true)}>Bulk Add Students</button>
-          <button className="btn" onClick={() => setShowAdd(true)}>+ Add Student</button>
+          <button type="button" className="btn" onClick={() => setShowBulkAdd(true)}>Bulk Add Students</button>
+          <button type="button" className="btn" onClick={() => setShowAdd(true)}>+ Add Student</button>
         </div>
       </div>
 
@@ -823,12 +849,12 @@ export function Students() {
                 <td className="meta">{s.email || '—'}{s.phone ? ` · ${s.phone}` : ''}</td>
                 <td>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn sm ghost" onClick={() => handleReport(s.id)}>Report</button>
-                    <button className="btn sm ghost" onClick={() => setEditStudent(s)}>Edit</button>
+<button type="button" className="btn sm ghost" onClick={() => handleReport(s.id)}>Report</button>
+                    <button type="button" className="btn sm ghost" onClick={() => setEditStudent(s)}>Edit</button>
                     {(user?.role === 'organization' || user?.role === 'institution') && s.user_id && (
-                      <button className="btn sm ghost" title="Re-send the login credentials email" onClick={() => resendCredentials(s)}>Resend</button>
+                      <button type="button" className="btn sm ghost" title="Re-send the login credentials email" onClick={() => resendCredentials(s)}>Resend</button>
                     )}
-                    <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => handleDelete(s.id, s.name)}>Delete</button>
+                    <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => handleDelete(s.id, s.name)}>Delete</button>
                   </div>
                 </td>
               </tr>
@@ -879,7 +905,7 @@ export function Students() {
                 ))}
               </select>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Add Student</button>
+                <button className="btn" type="submit" disabled={formBusy}>{formBusy ? 'Saving…' : 'Add Student'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>Cancel</button>
               </div>
             </form>
@@ -911,7 +937,7 @@ export function Students() {
                 onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })}
               />
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Save Changes</button>
+                <button className="btn" type="submit" disabled={formBusy}>{formBusy ? 'Saving…' : 'Save Changes'}</button>
                 <button type="button" className="btn ghost" onClick={() => setEditStudent(null)}>Cancel</button>
               </div>
             </form>
@@ -964,7 +990,7 @@ export function Students() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-              <button className="btn" onClick={() => setReportStudent(null)}>Close</button>
+              <button type="button" className="btn" onClick={() => setReportStudent(null)}>Close</button>
             </div>
           </div>
         </div>
@@ -1042,11 +1068,11 @@ export function Attendance() {
           {batches.map((b) => <option key={b.id} value={b.id}>{b.id}</option>)}
         </select>
         <input className="select-sm" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button className="btn ghost" onClick={load} disabled={!bid}>Load</button>
-        <button className="btn ghost" disabled={!rows.length} onClick={() => setRows(rows.map((r) => ({ ...r, status: 'PRESENT' })))}>
+        <button type="button" className="btn ghost" onClick={load} disabled={!bid}>Load</button>
+        <button type="button" className="btn ghost" disabled={!rows.length} onClick={() => setRows(rows.map((r) => ({ ...r, status: 'PRESENT' })))}>
           Mark all present
         </button>
-        <button className="btn" onClick={save} disabled={!rows.length}>Save attendance</button>
+        <button type="button" className="btn" onClick={save} disabled={!rows.length}>Save attendance</button>
       </div>
 
       {msg === 'Loading…' && <p className="meta">Loading…</p>}
@@ -1092,6 +1118,7 @@ export function TrainerLeaveRequests() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [showApply, setShowApply] = useState(false);
   const [f, setF] = useState({
     type: 'Casual Leave',
@@ -1119,13 +1146,20 @@ export function TrainerLeaveRequests() {
 
   const submitLeave = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    /* Validate date order before submitting */
+    if (f.to_date && f.from_date && f.to_date < f.from_date) {
+      setMsg('End date cannot be before the start date');
+      return;
+    }
+    setBusy(true);
     try {
       await api.createLeaveRequest({
         ...f,
         trainer_id: user.trainer_id,
         trainer_name: user.name,
       });
-      toast('✓ Leave application submitted successfully');
+      toast('Leave application submitted successfully');
       setShowApply(false);
       setF({
         type: 'Casual Leave',
@@ -1137,6 +1171,8 @@ export function TrainerLeaveRequests() {
       load();
     } catch (ex) {
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -1164,7 +1200,7 @@ export function TrainerLeaveRequests() {
           <h2>My Leave Requests</h2>
           <p className="sub">Submit leave applications and track their approval status.</p>
         </div>
-        <button className="btn" onClick={() => setShowApply(true)}>+ Apply Leave</button>
+        <button type="button" className="btn" onClick={() => setShowApply(true)}>+ Apply Leave</button>
       </div>
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
@@ -1195,7 +1231,7 @@ export function TrainerLeaveRequests() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map((tab) => (
-            <button
+            <button type="button"
               key={tab}
               className={`btn sm ${filter === tab ? '' : 'ghost'}`}
               onClick={() => setFilter(tab)}
@@ -1319,7 +1355,7 @@ export function TrainerLeaveRequests() {
               />
 
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Submit Request</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit Request'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShowApply(false)}>Cancel</button>
               </div>
             </form>
@@ -1486,7 +1522,7 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
 
         <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
           <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn" onClick={handleSubmit} disabled={loading || !file || !selectedBatch}>
+          <button type="button" className="btn" onClick={handleSubmit} disabled={loading || !file || !selectedBatch}>
             {loading ? 'Processing…' : 'Import Students'}
           </button>
         </div>

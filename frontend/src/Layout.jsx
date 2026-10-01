@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, NAV } from './auth';
 import { Toaster, CommandPalette } from './widgets';
+import Assistant from './Assistant';
 
 /* ---------- Role + navigation grouping ---------------------------------- */
 
@@ -54,6 +55,12 @@ const ICONS = {
       <circle cx="8" cy="8" r="5.9" />
       <circle cx="8" cy="8" r="2.7" />
       <circle cx="8" cy="8" r="0.85" fill="currentColor" stroke="none" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="1.9" y="3.4" width="12.2" height="9.2" rx="1.9" />
+      <path d="m2.7 4.9 5.3 3.9 5.3-3.9" />
     </>
   ),
   customers: (
@@ -198,6 +205,7 @@ const ICON_FOR = {
   '/': 'dashboard',
   '/learning': 'learning',
   '/leads': 'leads',
+  '/cold-mail': 'mail',
   '/customers': 'customers',
   '/college': 'college',
   '/programs': 'programs',
@@ -336,7 +344,7 @@ export default function Layout({ children }) {
             <b>{user?.name}</b>
             <span>{user?.email}</span>
           </span>
-          <button className="icon-btn" onClick={doLogout} title="Log out" aria-label="Log out">
+          <button type="button" className="icon-btn" onClick={doLogout} title="Log out" aria-label="Log out">
             <Icon name="logout" />
           </button>
         </div>
@@ -344,7 +352,7 @@ export default function Layout({ children }) {
 
       <div className="main">
         <header className="top">
-          <button className="icon-btn burger" onClick={() => setOpen(true)} aria-label="Open navigation">
+          <button type="button" className="icon-btn burger" onClick={() => setOpen(true)} aria-label="Open navigation">
             <Icon name="menu" size={18} />
           </button>
 
@@ -359,7 +367,7 @@ export default function Layout({ children }) {
           </div>
 
           <div className="top-right">
-            <button className="kbd-hint" title="Search (Ctrl+K)" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
+            <button type="button" className="kbd-hint" title="Search (Ctrl+K)" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
               Search <kbd>Ctrl K</kbd>
             </button>
             <span className="role">{ROLE_LABEL[user?.role] || user?.role}</span>
@@ -375,6 +383,9 @@ export default function Layout({ children }) {
 
       <Toaster />
       <CommandPalette />
+      {/* Sibling of the page content, so `position: fixed` resolves against the
+          viewport instead of any transformed ancestor. */}
+      <Assistant />
     </div>
   );
 }

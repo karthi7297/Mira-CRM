@@ -304,3 +304,87 @@ CREATE TABLE IF NOT EXISTS certificates (
   CONSTRAINT fk_certificates_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
   CONSTRAINT fk_certificates_batch   FOREIGN KEY (batch_id)   REFERENCES batches (id)  ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- ============================================================================
+-- OUTREACH / COLD MAIL (ORGANIZATION only)
+-- Mirrors schema.js. The suppression list and unsubscribe footer are required
+-- for deliverability, not optional — Gmail suspends accounts that keep mailing
+-- recipients who opted out.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  template_key BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id           VARCHAR(50)  NOT NULL UNIQUE,
+  name         VARCHAR(160) NOT NULL,
+  category     VARCHAR(30)  NOT NULL DEFAULT 'COLD_OUTREACH',
+  subject      VARCHAR(255) NOT NULL,
+  body         MEDIUMTEXT   NOT NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS campaigns (
+  campaign_key   BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id             VARCHAR(50)  NOT NULL UNIQUE,
+  name           VARCHAR(160) NOT NULL,
+  template_id    VARCHAR(50)  NOT NULL,
+  followup_template_id VARCHAR(50),
+  status         VARCHAR(20)  NOT NULL DEFAULT 'DRAFT',
+  from_name      VARCHAR(120),
+  daily_limit    INT          NOT NULL DEFAULT 40,
+  window_start   INT          NOT NULL DEFAULT 10,
+  window_end     INT          NOT NULL DEFAULT 18,
+  follow_up_days VARCHAR(120) NOT NULL DEFAULT '[0,3,7]',
+  max_followups  INT          NOT NULL DEFAULT 2,
+  created_by     VARCHAR(50),
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME,
+  CONSTRAINT fk_campaigns_template FOREIGN KEY (template_id) REFERENCES email_templates (id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS campaign_recipients (
+  recipient_key   BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id              VARCHAR(50)  NOT NULL UNIQUE,
+  campaign_id     VARCHAR(50)  NOT NULL,
+  lead_id         VARCHAR(50),
+  email           VARCHAR(255) NOT NULL,
+  name            VARCHAR(160),
+  organization    VARCHAR(200),
+  step            INT          NOT NULL DEFAULT 0,
+  scheduled_at    DATETIME     NOT NULL,
+  status          VARCHAR(20)  NOT NULL DEFAULT 'QUEUED',
+  attempts        INT          NOT NULL DEFAULT 0,
+  sent_at         DATETIME,
+  last_error      TEXT,
+  message_id      VARCHAR(255),
+  open_token      VARCHAR(64) UNIQUE,
+  open_count      INT          NOT NULL DEFAULT 0,
+  first_opened_at DATETIME,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_recipients_due (status, scheduled_at),
+  KEY idx_recipients_campaign (campaign_id, status),
+  CONSTRAINT fk_recipients_campaign FOREIGN KEY (campaign_id) REFERENCES campaigns (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS email_events (
+  event_key    BIGINT PRIMARY KEY AUTO_INCREMENT,
+  recipient_id VARCHAR(50),
+  campaign_id  VARCHAR(50),
+  type         VARCHAR(20) NOT NULL,
+  detail       TEXT,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_events_recipient (recipient_id),
+  CONSTRAINT fk_events_recipient FOREIGN KEY (recipient_id) REFERENCES campaign_recipients (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS suppressions (
+  email      VARCHAR(255) PRIMARY KEY,
+  reason     VARCHAR(30)  NOT NULL DEFAULT 'UNSUBSCRIBED',
+  detail     TEXT,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS automation_settings (
+  `key`  VARCHAR(60) PRIMARY KEY,
+  value  TEXT NOT NULL
+) ENGINE=InnoDB;
