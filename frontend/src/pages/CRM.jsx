@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr, toast, toastError } from '../api';
 import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
+import { useListControls, ListToolbar, Pager, SortHeader, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, useSavedViews, SavedViewsBar, DateRange, ArchiveToggle } from '../listkit';
 
 function filterInstitutionLeaves(leaves, customerId) {
   return leaves.filter(l => l.customer_id === customerId);
@@ -65,9 +66,14 @@ export function Leads() {
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [archived, setArchived] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSel, setMergeSel] = useState({ primary: '', duplicate: '' });
+  const [merging, setMerging] = useState(false);
 
   const load = () =>
-    api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}`).then(setRows).catch((e) => setMsg(e.message));
+    api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}${archived ? '&archived=1' : ''}`)
+      .then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
   // Filters apply automatically: changing the status reloads at once and
   // typing searches live (debounced). The Filter button / Enter key still
@@ -77,7 +83,7 @@ export function Leads() {
     if (firstRun.current) { firstRun.current = false; return; }
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
-  }, [q, st]);
+  }, [q, st, archived]);
 
   const create = async (e) => {
     e.preventDefault();
@@ -123,6 +129,62 @@ export function Leads() {
 
   const nextStageMap = { NEW: 'CONTACTED', CONTACTED: 'QUALIFIED', QUALIFIED: 'PROPOSAL', PROPOSAL: 'CONVERTED' };
 
+  // Table view: sort + pagination + bulk selection (server already filtered rows).
+  const L = useListControls(rows, {
+    searchKeys: ['id', 'organization', 'contact_person', 'program', 'status', 'source'],
+    initialSort: { key: 'expected_value', dir: 'desc' },
+    dateKey: 'created_at',
+  });
+  const bulk = useBulkSelection();
+  const views = useSavedViews('leads',
+    () => ({ q, st, sort: L.sort, archived, from: L.from, to: L.to }),
+    (s) => {
+      setQ(s.q || ''); setSt(s.st || 'ALL'); setArchived(!!s.archived);
+      L.setSort(s.sort || null); L.setFrom(s.from || ''); L.setTo(s.to || '');
+    });
+
+  // Record lifecycle (audit D8): archive keeps the row + its history, unlike delete.
+  const doArchive = async (id) => {
+    if (!window.confirm('Archive this lead? It leaves the pipeline but stays recoverable.')) return;
+    try { await api.archive('leads', id); toast('Lead archived'); load(); }
+    catch (e) { toastError(e.message); }
+  };
+  const doRestore = async (id) => {
+    try { await api.restore('leads', id); toast('Lead restored'); load(); }
+    catch (e) { toastError(e.message); }
+  };
+  const doMerge = async (e) => {
+    e.preventDefault();
+    if (!mergeSel.primary || !mergeSel.duplicate) { setMsg('Pick both a primary and a duplicate lead'); return; }
+    if (mergeSel.primary === mergeSel.duplicate) { setMsg('Pick two different leads'); return; }
+    setMerging(true); setMsg('');
+    try {
+      const p = await api.merge('leads', mergeSel.primary, mergeSel.duplicate);
+      toast(`Merged duplicate into ${p.id}`);
+      setMergeOpen(false);
+      setMergeSel({ primary: '', duplicate: '' });
+      load();
+    } catch (ex) { setMsg(ex.message); } finally { setMerging(false); }
+  };
+
+  const bulkAdvance = async () => {
+    const targets = rows.filter((l) => bulk.has(l.id) && nextStageMap[l.status]);
+    for (const l of targets) {
+      try { await api.patchLead(l.id, { status: nextStageMap[l.status] }); } catch { /* keep going */ }
+    }
+    toast(`Advanced ${targets.length} lead(s)`);
+    bulk.clear();
+    load();
+  };
+  const bulkSetStatus = async (status) => {
+    for (const id of bulk.ids) {
+      try { await api.patchLead(id, { status }); } catch { /* keep going */ }
+    }
+    toast(`Updated ${bulk.size} lead(s) to ${STAGE_LABELS[status] || status}`);
+    bulk.clear();
+    load();
+  };
+
   return (
     <div>
       <div className="page-head">
@@ -152,6 +214,9 @@ export function Leads() {
             onKeyDown={(e) => e.key === 'Enter' && load()}
           />
           <button type="button" className="btn ghost" onClick={load}>Filter</button>
+          {!archived && (
+            <button type="button" className="btn ghost" onClick={() => setMergeOpen(true)}>Merge duplicates</button>
+          )}
           <button type="button" className="btn" onClick={() => setShow(true)}>+ New Lead</button>
         </div>
       </div>
@@ -236,20 +301,50 @@ export function Leads() {
         </div>
       ) : (
         <>
+          <SavedViewsBar views={views} />
+          <ListToolbar
+            L={L}
+            hideSearch
+            sortOptions={[
+              ['organization', 'Company'], ['contact_person', 'Contact'], ['program', 'Program'],
+              ['status', 'Status'], ['expected_value', 'Value'], ['source', 'Source'],
+            ]}
+          >
+            <DateRange L={L} label="Created" />
+            <ArchiveToggle value={archived} onChange={setArchived} />
+          </ListToolbar>
+          <BulkBar bulk={bulk}>
+            <button type="button" className="btn sm" onClick={bulkAdvance}>Advance stage →</button>
+            <button type="button" className="btn sm ghost" onClick={() => bulkSetStatus('LOST')}>Mark Lost</button>
+            <button type="button" className="btn sm ghost" onClick={() => downloadCsv('leads.csv', [
+              { label: 'ID', value: 'id' }, { label: 'Company', value: 'organization' },
+              { label: 'Contact', value: 'contact_person' }, { label: 'Status', value: 'status' },
+              { label: 'Value', value: 'expected_value' }, { label: 'Source', value: 'source' },
+            ], L.all.filter((l) => bulk.has(l.id)))}>Export CSV</button>
+          </BulkBar>
           <table>
             <thead>
               <tr>
-                <th>Lead ID</th><th>Company</th><th>Contact</th><th>Program</th>
-                <th>Status</th><th>Propensity</th><th>Value</th><th>Source</th><th></th>
+                <SelectAllTh bulk={bulk} ids={L.rows.map((l) => l.id)} />
+                <SortHeader label="Lead ID" k="id" L={L} />
+                <SortHeader label="Company" k="organization" L={L} />
+                <SortHeader label="Contact" k="contact_person" L={L} />
+                <SortHeader label="Program" k="program" L={L} />
+                <SortHeader label="Status" k="status" L={L} />
+                <th>Propensity</th>
+                <SortHeader label="Value" k="expected_value" L={L} />
+                <SortHeader label="Source" k="source" L={L} />
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((l) => {
+              {L.rows.map((l) => {
                 const prop = getPropensity(l);
                 const isAuto = l.source === 'Website' || l.source === 'Online';
                 const stageColor = STAGE_COLORS[l.status];
                 return (
                   <tr key={l.id}>
+                    <td><input type="checkbox" aria-label={`Select ${l.id}`} checked={bulk.has(l.id)} onChange={() => bulk.toggle(l.id)} /></td>
                     <td>
                       {l.id} {isAuto && <span className="chip" style={{ background: '#dbeafe', color: '#1e40af', fontSize: 10 }}>⚡ AUTO</span>}
                     </td>
@@ -269,13 +364,21 @@ export function Leads() {
                     <td><span style={{ color: prop.color, fontWeight: 600, fontSize: 12 }}>{prop.score}% {prop.label}</span></td>
                     <td>{inr(l.expected_value)}</td>
                     <td>{l.source || '—'}</td>
-                    <td><Link to={'/leads/' + l.id} className="btn ghost sm">Open</Link></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <Link to={'/leads/' + l.id} className="btn ghost sm">Open</Link>
+                        {archived
+                          ? <button type="button" className="btn sm ghost" onClick={() => doRestore(l.id)}>Restore</button>
+                          : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(l.id)}>Archive</button>}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {rows.length === 0 && <p className="empty">No leads match this filter yet.</p>}
+          {L.total === 0 && <p className="empty">{rows.length === 0 ? (archived ? 'No archived leads.' : 'No leads match this filter yet.') : 'No leads on this page.'}</p>}
+          <Pager L={L} />
         </>
       )}
 
@@ -298,6 +401,34 @@ export function Leads() {
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create Lead'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
               </span>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {mergeOpen && (
+        <div className="modal">
+          <div>
+            <h3>Merge Duplicate Leads</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginTop: 0 }}>
+              The duplicate&rsquo;s follow-ups and any blank fields are folded into the primary,
+              then the duplicate is archived — nothing is deleted.
+            </p>
+            <form onSubmit={doMerge} className="form col-1">
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Primary lead (kept)</label>
+              <select value={mergeSel.primary} onChange={(e) => setMergeSel({ ...mergeSel, primary: e.target.value })}>
+                <option value="">Select lead…</option>
+                {rows.map((l) => <option key={l.id} value={l.id}>{l.id} · {l.organization} — {l.contact_person}</option>)}
+              </select>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Duplicate lead (archived)</label>
+              <select value={mergeSel.duplicate} onChange={(e) => setMergeSel({ ...mergeSel, duplicate: e.target.value })}>
+                <option value="">Select lead…</option>
+                {rows.map((l) => <option key={l.id} value={l.id}>{l.id} · {l.organization} — {l.contact_person}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <button className="btn" type="submit" disabled={merging}>{merging ? 'Merging…' : 'Merge'}</button>
+                <button type="button" className="btn ghost" onClick={() => { setMergeOpen(false); setMergeSel({ primary: '', duplicate: '' }); }}>Cancel</button>
+              </div>
             </form>
           </div>
         </div>
@@ -430,56 +561,151 @@ export function LeadDetail() {
 
 export function Customers() {
   const [rows, setRows] = useState([]);
-  const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [archived, setArchived] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSel, setMergeSel] = useState({ primary: '', duplicate: '' });
+  const [merging, setMerging] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => { api.customers().then(setRows); }, []);
-
-  const list = rows.filter((c) => {
-    if (typeFilter !== 'ALL' && c.type !== typeFilter) return false;
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
-    return true;
-  });
+  const load = () => {
+    setLoading(true); setErr('');
+    return api.customers(archived ? '?archived=1' : '')
+      .then(setRows).catch((e) => setErr(e.message)).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [archived]);
 
   const types = ['Enterprise', 'SMB', 'Direct'];
+  const base = useMemo(
+    () => rows.filter((c) => typeFilter === 'ALL' || c.type === typeFilter),
+    [rows, typeFilter],
+  );
+  const L = useListControls(base, {
+    searchKeys: ['id', 'name', 'contact_person', 'type', 'email'],
+    initialSort: { key: 'name', dir: 'asc' },
+    dateKey: 'created_at',
+  });
+
+  const doArchive = async (id) => {
+    if (!window.confirm('Archive this institution? It leaves the list but stays recoverable.')) return;
+    try { await api.archive('customers', id); toast('Institution archived'); load(); }
+    catch (e) { toastError(e.message); }
+  };
+  const doRestore = async (id) => {
+    try { await api.restore('customers', id); toast('Institution restored'); load(); }
+    catch (e) { toastError(e.message); }
+  };
+  const doMerge = async (e) => {
+    e.preventDefault();
+    if (!mergeSel.primary || !mergeSel.duplicate) { setErr('Pick both a primary and a duplicate'); return; }
+    if (mergeSel.primary === mergeSel.duplicate) { setErr('Pick two different institutions'); return; }
+    setMerging(true); setErr('');
+    try {
+      const p = await api.merge('customers', mergeSel.primary, mergeSel.duplicate);
+      toast(`Merged into ${p.id}`);
+      setMergeOpen(false); setMergeSel({ primary: '', duplicate: '' });
+      load();
+    } catch (ex) { setErr(ex.message); } finally { setMerging(false); }
+  };
+
+  if (loading) return <div className="loading">Loading institutions…</div>;
+  if (err) {
+    return (
+      <div className="err" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span>Could not load institutions — {err}</span>
+        <button type="button" className="btn sm ghost" onClick={load}>Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="page-head">
         <h2>Institutions</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select
-            className="select-sm"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={{ minWidth: 140 }}
-          >
-            <option value="ALL">All Types</option>
-            {types.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input className="search-input" placeholder="Search institutions…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {!archived && (
+            <button type="button" className="btn sm ghost" onClick={() => setMergeOpen(true)}>Merge duplicates</button>
+          )}
+          <button
+            type="button"
+            className="btn sm ghost"
+            onClick={() => downloadCsv('institutions.csv', [
+              { label: 'ID', value: 'id' }, { label: 'Name', value: 'name' },
+              { label: 'Contact', value: 'contact_person' }, { label: 'Type', value: 'type' },
+            ], L.all)}
+          >Export CSV</button>
         </div>
       </div>
 
+      <ListToolbar L={L} placeholder="Search institutions…">
+        <select className="select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ minWidth: 140 }} aria-label="Filter by type">
+          <option value="ALL">All Types</option>
+          {types.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <DateRange L={L} label="Added" />
+        <ArchiveToggle value={archived} onChange={setArchived} />
+      </ListToolbar>
+
       <table>
-        <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Type</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Name" k="name" L={L} />
+            <SortHeader label="Contact" k="contact_person" L={L} />
+            <SortHeader label="Type" k="type" L={L} />
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
-          {list.map((c) => (
+          {L.rows.map((c) => (
             <tr key={c.id} onClick={() => navigate('/customers/' + c.id)} style={{ cursor: 'pointer' }}>
               <td>{c.id}</td>
               <td><b>{c.name}</b></td>
               <td>{c.contact_person}</td>
               <td>{c.type}</td>
               <td>
-                <Link to={'/customers/' + c.id} onClick={(e) => e.stopPropagation()}>
-                  View Details →
-                </Link>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                  <Link to={'/customers/' + c.id}>View Details →</Link>
+                  {archived
+                    ? <button type="button" className="btn sm ghost" onClick={() => doRestore(c.id)}>Restore</button>
+                    : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(c.id)}>Archive</button>}
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {list.length === 0 && <p className="empty">No customers yet. Convert a qualified lead first.</p>}
+      {L.total === 0 && <p className="empty">{rows.length === 0 ? (archived ? 'No archived institutions.' : 'No customers yet. Convert a qualified lead first.') : 'No institutions match your search.'}</p>}
+      <Pager L={L} />
+
+      {mergeOpen && (
+        <div className="modal">
+          <div>
+            <h3>Merge Duplicate Institutions</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginTop: 0 }}>
+              Batches, students, invoices, payments and contacts from the duplicate are re-pointed
+              at the primary, which keeps every blank field filled in. The duplicate is archived.
+            </p>
+            <form onSubmit={doMerge} className="form col-1">
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Primary institution (kept)</label>
+              <select value={mergeSel.primary} onChange={(e) => setMergeSel({ ...mergeSel, primary: e.target.value })}>
+                <option value="">Select institution…</option>
+                {rows.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
+              </select>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Duplicate institution (archived)</label>
+              <select value={mergeSel.duplicate} onChange={(e) => setMergeSel({ ...mergeSel, duplicate: e.target.value })}>
+                <option value="">Select institution…</option>
+                {rows.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <button className="btn" type="submit" disabled={merging}>{merging ? 'Merging…' : 'Merge'}</button>
+                <button type="button" className="btn ghost" onClick={() => { setMergeOpen(false); setMergeSel({ primary: '', duplicate: '' }); }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -492,13 +718,42 @@ export function Customer360({ fixedId }) {
   const [tab, setTab] = useState('Overview');
   const [msg, setMsg] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [contactForm, setContactForm] = useState({ name: '', title: '', email: '', phone: '', is_primary: false });
+  const [cBusy, setCBusy] = useState(false);
 
   const isInstitution = user?.role === 'institution';
   const TABS = isInstitution
-    ? ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Leave', 'Activity']
-    : ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Activity'];
+    ? ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Contacts', 'Leave', 'Activity']
+    : ['Overview', 'Training', 'Students', 'Attendance', 'Finance', 'Contacts', 'Activity'];
 
   useEffect(() => { api.customer(id).then(setC).catch((e) => setMsg(e.message)); }, [id]);
+
+  const loadContacts = () => api.contacts(id).then(setContacts).catch(() => setContacts([]));
+  useEffect(() => { if (tab === 'Contacts') loadContacts(); }, [tab, id]);
+
+  const addContact = async (e) => {
+    e.preventDefault();
+    if (cBusy) return;
+    if (!contactForm.name.trim()) { setMsg('Contact name is required'); return; }
+    const em = String(contactForm.email || '').trim();
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { setMsg('Enter a valid email address'); return; }
+    const ph = String(contactForm.phone || '').trim();
+    if (ph && !/^[+()\-.\s\d]{7,20}$/.test(ph)) { setMsg('Enter a valid phone number'); return; }
+    setCBusy(true); setMsg('');
+    try {
+      await api.createContact(id, contactForm);
+      toast('✓ Contact added');
+      setContactForm({ name: '', title: '', email: '', phone: '', is_primary: false });
+      loadContacts();
+    } catch (ex) { setMsg(ex.message); } finally { setCBusy(false); }
+  };
+
+  const removeContact = async (cid) => {
+    if (!window.confirm('Remove this contact?')) return;
+    try { await api.deleteContact(cid); toast('✓ Contact removed'); loadContacts(); }
+    catch (ex) { setMsg(ex.message); }
+  };
 
   useEffect(() => {
     if (isInstitution && tab === 'Leave') {
@@ -732,6 +987,46 @@ export function Customer360({ fixedId }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tab === 'Contacts' && (
+        <div className="card">
+          <h4>Customer Contacts</h4>
+          <p className="meta" style={{ marginBottom: 14 }}>
+            Named people at this institution — coordinators, principals, billing contacts and payers.
+          </p>
+          {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
+          {user?.role === 'organization' && (
+            <form onSubmit={addContact} className="form" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              <input placeholder="Name *" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} />
+              <input placeholder="Title / Role" value={contactForm.title} onChange={(e) => setContactForm({ ...contactForm, title: e.target.value })} />
+              <input placeholder="Email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} />
+              <input placeholder="Phone" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <input type="checkbox" checked={contactForm.is_primary} onChange={(e) => setContactForm({ ...contactForm, is_primary: e.target.checked })} /> Primary
+              </label>
+              <button className="btn" type="submit" disabled={cBusy}>{cBusy ? 'Saving…' : '+ Add Contact'}</button>
+            </form>
+          )}
+          <table>
+            <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th>Primary</th>{user?.role === 'organization' && <th></th>}</tr></thead>
+            <tbody>
+              {contacts.map((ct) => (
+                <tr key={ct.id}>
+                  <td><b>{ct.name}</b></td>
+                  <td>{ct.title || '—'}</td>
+                  <td>{ct.email || '—'}</td>
+                  <td>{ct.phone || '—'}</td>
+                  <td>{ct.is_primary ? <span className="chip PRESENT">Primary</span> : '—'}</td>
+                  {user?.role === 'organization' && (
+                    <td><button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => removeContact(ct.id)}>Remove</button></td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {contacts.length === 0 && <p className="empty">No contacts yet.</p>}
         </div>
       )}
 

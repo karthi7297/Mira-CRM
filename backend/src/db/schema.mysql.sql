@@ -387,3 +387,133 @@ CREATE TABLE IF NOT EXISTS automation_settings (
   `key`  VARCHAR(60) PRIMARY KEY,
   value  TEXT NOT NULL
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  ticket_key   INT AUTO_INCREMENT PRIMARY KEY,
+  id           VARCHAR(24) NOT NULL UNIQUE,
+  kind         VARCHAR(16) NOT NULL DEFAULT 'SUPPORT',
+  category     VARCHAR(60),
+  subject      VARCHAR(200) NOT NULL,
+  body         TEXT,
+  priority     VARCHAR(16) NOT NULL DEFAULT 'NORMAL',
+  status       VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+  created_by   VARCHAR(24),
+  created_role VARCHAR(16),
+  customer_id  VARCHAR(24),
+  batch_id     VARCHAR(24),
+  response     TEXT,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  announcement_key INT AUTO_INCREMENT PRIMARY KEY,
+  id               VARCHAR(24) NOT NULL UNIQUE,
+  title            VARCHAR(200) NOT NULL,
+  body             TEXT,
+  audience         VARCHAR(16) NOT NULL DEFAULT 'ALL',
+  customer_id      VARCHAR(24),
+  batch_id         VARCHAR(24),
+  created_by       VARCHAR(24),
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS customer_contacts (
+  contact_key  INT AUTO_INCREMENT PRIMARY KEY,
+  id           VARCHAR(24) NOT NULL UNIQUE,
+  customer_id  VARCHAR(24) NOT NULL,
+  name         VARCHAR(160) NOT NULL,
+  title        VARCHAR(120),
+  email        VARCHAR(160),
+  phone        VARCHAR(40),
+  is_primary   TINYINT NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_contacts_customer (customer_id)
+) ENGINE=InnoDB;
+
+-- Notifications (audit B4 / F7): actionable in-app inbox read by the topbar bell.
+CREATE TABLE IF NOT EXISTS notifications (
+  notification_key INT AUTO_INCREMENT PRIMARY KEY,
+  id               VARCHAR(24) NOT NULL UNIQUE,
+  audience_user    VARCHAR(24),
+  audience_role    VARCHAR(16),
+  kind             VARCHAR(16) NOT NULL DEFAULT 'INFO',
+  title            VARCHAR(200) NOT NULL,
+  body             TEXT,
+  link             VARCHAR(200),
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_notifications_role (audience_role, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS notification_reads (
+  notification_id VARCHAR(24) NOT NULL,
+  user_id         VARCHAR(24) NOT NULL,
+  read_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (notification_id, user_id)
+) ENGINE=InnoDB;
+
+-- ================= Feedback (forms → responses → sentiment) =================
+-- Mirrors backend/src/db/schema.js column-for-column.
+--   audience STUDENT     → students answer, the form's owner reads
+--   audience INSTITUTION → institutions/Rampex answer, Rampex reads all
+-- Visibility lives in services/feedback.service.js, never in the client:
+--   organization → all forms + all responses
+--   institution  → only its own forms and their responses
+--   student      → STUDENT forms addressed to it, plus its own submissions
+CREATE TABLE IF NOT EXISTS feedback_forms (
+  form_key        INT AUTO_INCREMENT PRIMARY KEY,
+  id              VARCHAR(24) NOT NULL UNIQUE,
+  title           VARCHAR(200) NOT NULL,
+  description     TEXT,
+  audience        VARCHAR(16) NOT NULL DEFAULT 'STUDENT',
+  created_by_role VARCHAR(16) NOT NULL,
+  created_by      VARCHAR(24),
+  customer_id     VARCHAR(24),
+  status          VARCHAR(16) NOT NULL DEFAULT 'OPEN',
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME,
+  CONSTRAINT chk_feedback_forms_audience CHECK (audience IN ('STUDENT','INSTITUTION')),
+  CONSTRAINT chk_feedback_forms_creator  CHECK (created_by_role IN ('ORGANIZATION','INSTITUTION','TRAINER')),
+  CONSTRAINT chk_feedback_forms_status   CHECK (status IN ('OPEN','CLOSED')),
+  INDEX idx_feedback_forms_owner (created_by_role, customer_id, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS feedback_questions (
+  question_key INT AUTO_INCREMENT PRIMARY KEY,
+  id           VARCHAR(24) NOT NULL UNIQUE,
+  form_id      VARCHAR(24) NOT NULL,
+  text         VARCHAR(400) NOT NULL,
+  qtype        VARCHAR(16) NOT NULL DEFAULT 'RATING',
+  options      TEXT,
+  order_index  INT NOT NULL DEFAULT 0,
+  CONSTRAINT chk_feedback_questions_type CHECK (qtype IN ('RATING','TEXT','CHOICE')),
+  INDEX idx_feedback_questions_form (form_id, order_index)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS feedback_responses (
+  response_key    INT AUTO_INCREMENT PRIMARY KEY,
+  id              VARCHAR(24) NOT NULL UNIQUE,
+  form_id         VARCHAR(24) NOT NULL,
+  submitted_by    VARCHAR(24),
+  submitted_role  VARCHAR(16),
+  student_id      VARCHAR(24),
+  customer_id     VARCHAR(24),
+  sentiment       VARCHAR(16),
+  sentiment_score DECIMAL(5,4),
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_feedback_responses_sentiment CHECK (sentiment IN ('POSITIVE','NEUTRAL','NEGATIVE')),
+  UNIQUE KEY uq_feedback_one_per_user (form_id, submitted_by),
+  INDEX idx_feedback_responses_form (form_id, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS feedback_answers (
+  answer_key      INT AUTO_INCREMENT PRIMARY KEY,
+  response_id     VARCHAR(24) NOT NULL,
+  question_id     VARCHAR(24) NOT NULL,
+  value           TEXT,
+  rating          INT,
+  sentiment       VARCHAR(16),
+  sentiment_score DECIMAL(5,4),
+  CONSTRAINT chk_feedback_answers_sentiment CHECK (sentiment IN ('POSITIVE','NEUTRAL','NEGATIVE')),
+  UNIQUE KEY uq_feedback_answer (response_id, question_id)
+) ENGINE=InnoDB;

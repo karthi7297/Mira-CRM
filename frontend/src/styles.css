@@ -667,7 +667,7 @@ h4 + table { margin-top: 0; }
   background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok);
 }
 /* In progress */
-.chip.QUALIFIED, .chip.PROPOSAL, .chip.PARTIALLY_PAID, .chip.LATE,
+.chip.QUALIFIED, .chip.PROPOSAL, .chip.PARTIALLY_PAID, .chip.LATE, .chip.EXCUSED,
 .chip.PENDING, .chip.SENT, .chip.DRAFT, .chip.PLANNED {
   background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn);
 }
@@ -959,6 +959,54 @@ textarea { min-height: 84px; resize: vertical; }
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ---------- 14b. List toolkit (search · sort · pagination · bulk) -------- */
+.list-toolbar { flex-wrap: wrap; }
+.list-toolbar .search-input { flex: 1 1 200px; }
+.list-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  align-self: center;
+}
+.th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.th-sort:hover { color: var(--ink); }
+.th-sort .th-arrow { opacity: 0.35; margin-left: 5px; font-size: 11px; }
+.th-sort.active { color: var(--accent-ink); }
+.th-sort.active .th-arrow { opacity: 1; }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 0 2px;
+  flex-wrap: wrap;
+}
+.pager-info { font-size: 12.5px; color: var(--muted); }
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+}
+.bulkbar-count { font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+.bulkbar .btn { margin-left: 0; }
+.bulkbar > .btn:last-child { margin-left: auto; }
+
+.savedviews {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.savedviews .sv-name { flex: 0 1 180px; max-width: 220px; margin: 0; }
 
 /* ---------- 15. Login --------------------------------------------------- */
 .login {
@@ -1770,7 +1818,130 @@ tr.cm-row-on > td { background: var(--accent-soft); }
   background: #fff;
 }
 
-/* --- Responsive --- */
+/* ---------- 28. List toolkit additions: date range + archive toggle (D25 / D8) ---------- */
+.daterange {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.daterange .dr-label {
+  flex: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.daterange .dr-input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  padding: 2px 0;
+  min-width: 0;
+  max-width: 132px;
+}
+.daterange .dr-input:focus { outline: none; }
+.daterange .dr-sep { color: var(--faint); font-size: 12px; }
+
+.arch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.arch-toggle input { accent-color: var(--accent); }
+.arch-toggle:hover { border-color: var(--accent-line); }
+
+/* ---------- 29. Notification bell (audit B4 / F7) ---------------------- */
+.bell-wrap { position: relative; display: inline-flex; }
+.bell-btn { position: relative; }
+.bell-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--bad);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 344px;
+  max-width: calc(100vw - 24px);
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-3);
+  z-index: 60;
+  overflow: hidden;
+}
+.bell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+.bell-head b { font-size: 13.5px; }
+.bell-list { overflow-y: auto; }
+.bell-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--line-2);
+  background: transparent;
+  padding: 10px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+.bell-item:hover { background: var(--surface-2); }
+.bell-item.unread { background: var(--accent-soft); }
+.bell-item.unread:hover { background: #dcecea; }
+.bell-item .bi-title { display: block; font-size: 13px; font-weight: 600; color: var(--ink); }
+.bell-item .bi-body { display: block; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.bell-item .bi-meta { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.bell-item .bi-kind {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.bell-empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 13px; }
+
+/* ---------- Responsive ---------- */
 @media (max-width: 880px) {
   .kv.cm-stats { grid-template-columns: minmax(0, 1fr); }
   .cm-subject-cell { max-width: 200px; }
@@ -1850,6 +2021,9 @@ tr.cm-row-on > td { background: var(--accent-soft); }
   }
   thead th, tbody td { padding-inline: 12px; }
   tbody td { white-space: nowrap; }
+  /* A centred empty-state message inside a very wide scrolling table drifts
+     off-screen to the right; left-align it so it stays readable. */
+  tbody td > .empty { text-align: left; }
 }
 
 @media (max-width: 620px) {
@@ -1911,9 +2085,117 @@ tr.cm-row-on > td { background: var(--accent-soft); }
   /* Toasts take nearly the full width so long error text never overflows. */
   .toasts { left: 12px; right: 12px; bottom: 84px; }
   .toast { width: 100%; }
+
+  /* The notification panel pins to the viewport instead of the bell, so it
+     can never hang off the right edge on a narrow phone. */
+  .bell-panel {
+    position: fixed;
+    top: calc(var(--top-h) + 6px);
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+  }
 }
 
 /* Only very narrow phones drop to a single KPI column — 2-up stays scannable */
 @media (max-width: 359px) {
   .cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 30. Mobile chrome: topbar, page-heads, list toolbars --------- */
+/* The topbar is a single non-wrapping flex row. On a phone the brand was the
+   only item that could shrink, so "Mira" wrapped to two or three lines. Fix:
+   pin the brand, and buy back the space it needs by collapsing the search
+   label to an icon. */
+@media (max-width: 620px) {
+  .top { gap: 8px; padding-inline: 12px; }
+  .top-brand { flex: none; }
+  .top-brand-name { white-space: nowrap; }
+  .top-right { gap: 8px; }
+  .kbd-hint {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+  .kbd-hint-label { display: none; }
+
+  /* Page-heads: the title block and the action buttons are separate flex
+     children. Let the action group wrap its own buttons instead of letting
+     them run off the right edge. */
+  .page-head > div { flex-wrap: wrap; }
+  .page-head > div > .btn { flex: 0 1 auto; }
+
+  /* List toolbars were one-control-per-row (search, 4 selects, date range,
+     archive toggle = a full screen before the table). Put the selects two-up
+     and give the date range the full width it needs for two date inputs. */
+  .list-toolbar .select-sm { flex: 1 1 calc(50% - 5px); width: auto; min-width: 0; }
+  /* Full-width date range that keeps its label + two inputs on ONE line:
+     flex-basis 0 so the inputs share the row instead of wrapping. */
+  .list-toolbar .daterange { width: 100%; flex-wrap: nowrap; }
+  .list-toolbar .daterange .dr-input { flex: 1 1 0; min-width: 0; max-width: none; }
+  .list-toolbar .arch-toggle { flex: 0 0 auto; }
+}
+
+/* Below ~480px even an icon-only search plus the role pill crowds the brand. */
+@media (max-width: 479px) {
+  .top { gap: 6px; padding-inline: 10px; }
+  .top-right { gap: 6px; }
+}
+
+/* On genuinely tiny screens (≤359px) the role is the least essential chip —
+   it is still shown in the nav drawer and on the profile page. */
+@media (max-width: 359px) {
+  .role { display: none; }
+  .top-brand-name { font-size: 18px; }
+}
+
+/* ==========================================================================
+   Feedback — sentiment mix bars, polarity chips, star ratings, builder rows.
+   Uses the existing tokens only, so it re-skins with the rest of the app.
+   ========================================================================== */
+.mix-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+}
+.mix-bar > i { display: block; height: 100%; transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.mix-bar > i.pos { background: var(--ok); }
+.mix-bar > i.neu { background: var(--faint); }
+.mix-bar > i.neg { background: var(--bad); }
+.mix-bar.empty-bar > i { background: var(--surface-3); }
+
+.chip.sent-pos { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok); }
+.chip.sent-neu { background: var(--neutral-soft); border-color: var(--line); color: var(--neutral-ink); }
+.chip.sent-neg { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
+
+.sent-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.sent-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.dot.pos { background: var(--ok); }
+.dot.neu { background: var(--faint); }
+.dot.neg { background: var(--bad); }
+
+.rating { display: inline-flex; gap: 3px; }
+.rating button {
+  background: none; border: 0; padding: 0 1px; cursor: pointer;
+  font-size: 21px; line-height: 1; color: var(--line);
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+.rating button:not(:disabled):hover { transform: translateY(-1px); }
+.rating button.on { color: #dfa32b; }
+.rating button:disabled { cursor: default; }
+
+/* Question builder — one row per question, collapsing to a stack on narrow screens. */
+.q-row { display: grid; grid-template-columns: minmax(0, 1fr) 176px 36px; gap: 8px; align-items: center; }
+.q-block { border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: var(--surface-2); }
+.q-block label.chip { display: inline-flex; align-items: center; }
+
+@media (max-width: 640px) {
+  .q-row { grid-template-columns: minmax(0, 1fr); }
 }

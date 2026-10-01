@@ -3,6 +3,8 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, NAV } from './auth';
 import { Toaster, CommandPalette } from './widgets';
 import Assistant from './Assistant';
+import NotificationBell from './NotificationBell';
+import { useModalA11y } from './modalA11y';
 
 /* ---------- Role + navigation grouping ---------------------------------- */
 
@@ -21,6 +23,7 @@ const SECTIONS = [
   { label: 'Training', routes: ['/programs', '/trainers', '/batches', '/students', '/assessments', '/attendance', '/my-leave'] },
   { label: 'Finance', routes: ['/quotations', '/invoices', '/payments', '/expenses', '/my-finance', '/collections'] },
   { label: 'Insights', routes: ['/reports', '/certificates'] },
+  { label: 'Workspace', routes: ['/support', '/announcements', '/users'] },
 ];
 
 const sectionOf = (to) => (SECTIONS.find((s) => s.routes.includes(to)) || SECTIONS[0]).label;
@@ -147,6 +150,12 @@ const ICONS = {
     </>
   ),
   menu: <path d="M2.6 4.6h10.8M2.6 8h10.8M2.6 11.4h10.8" />,
+  search: (
+    <>
+      <circle cx="7.1" cy="7.1" r="4.5" />
+      <path d="m10.5 10.5 3.1 3.1" />
+    </>
+  ),
   collections: (
     <>
       <circle cx="8" cy="8" r="5.9" />
@@ -198,6 +207,26 @@ const ICONS = {
       <path d="M7.3 6.5 11 16.8M16.7 6.5 13 16.8M7.6 5.4h8.8" />
     </>
   ),
+  support: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.3 9.5a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 2.4" />
+      <circle cx="12" cy="16.6" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  announce: (
+    <>
+      <path d="M3 10.2v3.6a1.4 1.4 0 0 0 1.4 1.4H6l4.4 3.4V6.4L6 9.8H4.4A1.4 1.4 0 0 0 3 10.2Z" />
+      <path d="M14.4 8.4a4.6 4.6 0 0 1 0 7.2M17 6a8 8 0 0 1 0 12" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="8.2" r="3.2" />
+      <path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0" />
+      <path d="M16.2 6.2a3 3 0 0 1 0 5.6M17.6 14.6a5 5 0 0 1 3 4.6" />
+    </>
+  ),
 };
 
 /* Route → icon key (most share a name, a few are clearer spelled out) */
@@ -220,6 +249,9 @@ const ICON_FOR = {
   '/invoices': 'invoices',
   '/payments': 'payments',
   '/expenses': 'expenses',
+  '/support': 'support',
+  '/announcements': 'announce',
+  '/users': 'users',
   '/reports': 'reports',
   '/collections': 'collections',
   '/certificates': 'cert',
@@ -279,6 +311,9 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
+
+  /* Global modal behaviour: Escape/backdrop close, focus in/out, ARIA (F4/F5). */
+  useModalA11y();
 
   const items = NAV.filter((n) => n.roles.includes(user?.role));
   const current = activeItem(pathname);
@@ -367,14 +402,16 @@ export default function Layout({ children }) {
           </div>
 
           <div className="top-right">
-            <button type="button" className="kbd-hint" title="Search" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
-              Search
+            <button type="button" className="kbd-hint" title="Search" aria-label="Search" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
+              <Icon name="search" size={15} />
+              <span className="kbd-hint-label">Search</span>
             </button>
+            <NotificationBell />
             <span className="role">{ROLE_LABEL[user?.role] || user?.role}</span>
-            <span className="top-user">
+            <NavLink to="/profile" className="top-user" title="My profile" aria-label="My profile">
               <span className="avatar sm">{initialsOf(user?.name)}</span>
               <span className="tu-name">{user?.name}</span>
-            </span>
+            </NavLink>
           </div>
         </header>
 

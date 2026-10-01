@@ -4,21 +4,86 @@
  * batches.trainer_id); students see only their enrollments. STUDENT records are
  * delivered by the trainer, but Rampex (organization) holds full platform-wide
  * visibility and management (roster, reports, enrollment, attendance fallback).
- * Attendance may be marked by the assigned trainer, the owning institution's
- * staff for their own batches, or by Rampex as a fallback (FLOW I).
+ * Attendance may be marked only by the assigned trainer or by Rampex as a
+ * fallback (FLOW I). Institutions are read-only — they view attendance
+ * details but never mark it.
  */
 const db = require('../db');
+const crypto = require('crypto');
 const { badRequest, conflict, forbidden, notFound } = require('../utils/http');
 const { pct } = require('../utils/numbers');
 const { requireFields, oneOf, str, isNonEmpty, toInt } = require('../utils/validate');
 const { nid } = require('../utils/ids');
+const { hashPassword } = require('../utils/password');
 const { visibleBatchIds, assertBatchVisible, batchWithMeta } = require('./scope.service');
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Readable temp password for a new student login (always >= 6 chars). */
+function tempStudentPassword() {
+  return `Stu-${crypto.randomInt(1000, 9999)}-${crypto.randomInt(1000, 9999)}`;
+}
+
+/**
+ * Provision the STUDENT users row a student logs in with, and link
+ * students.user_id → users(id). Login looks up users by email (lowercased)
+ * and resolves the student via students.user_id — without this row the
+ * mailed credentials can never work, which was the reported bug.
+ *
+ * Idempotent per student: reuses a free matching login, resets its password
+ * to the mailed one, and returns the plaintext password ONLY here (creation
+ * time) so the caller can mail/display it once.
+ */
+async function provisionStudentLogin(conn, studentId, { name, email, password }) {
+  const em = str(email).toLowerCase();
+  if (!em) return { login: null };
+  if (!EMAIL_RE.test(em)) throw badRequest('Student email must be a valid email');
+  const pw = str(password) || tempStudentPassword();
+  if (pw.length < 6) throw badRequest('Password must be at least 6 characters');
+
+  const existing = await conn.get('SELECT id, role FROM users WHERE LOWER(email) = ?', [em]);
+  let userId;
+  if (existing) {
+    const clash = await conn.get('SELECT id FROM students WHERE user_id = ? AND id <> ?', [existing.id, studentId]);
+    if (clash || String(existing.role).toUpperCase() !== 'STUDENT') {
+      throw conflict(`A user with email ${em} already exists`);
+    }
+    userId = existing.id;
+    await conn.run('UPDATE users SET password_hash = ?, status = ? WHERE id = ?', [hashPassword(pw), 'ACTIVE', userId]);
+  } else {
+    userId = await nid(conn, 'U', 'users');
+    await conn.run(
+      'INSERT INTO users (id,name,email,phone,password_hash,role,customer_id,status) VALUES (?,?,?,?,?,?,?,?)',
+      [userId, str(name) || 'Student', em, null, hashPassword(pw), 'STUDENT', null, 'ACTIVE']
+    );
+  }
+  await conn.run('UPDATE students SET user_id = ?, email = ? WHERE id = ?', [userId, em, studentId]);
+
+  // Best-effort welcome mail with the working credentials — creation must
+  // succeed even when SMTP is not configured.
+  let emailed = false;
+  try {
+    const mailer = require('./email.service');
+    if (mailer.isConfigured()) {
+      await mailer.send({
+        to: em,
+        subject: 'Your Mira learning login',
+        text: `Hi ${str(name) || 'Student'},\n\nYour Mira learning account is ready.\n\nLogin: ${em}\nTemporary password: ${pw}\n\nSign in and change your password from your profile.\n\n— Rampex`,
+      });
+      emailed = true;
+    }
+  } catch {
+    emailed = false;
+  }
+  return { login: { email: em, password: pw, emailed, user_id: userId } };
+}
+
 // ---------- Programs ----------
-async function listPrograms() {
+async function listPrograms({ archived = false } = {}) {
+  const arch = archived ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL';
   return db.query(
     `SELECT p.*, (SELECT COUNT(*) FROM batches b WHERE b.program_id = p.id) AS batch_count
-       FROM programs p ORDER BY p.id`
+       FROM programs p WHERE ${arch} ORDER BY p.id`
   );
 }
 
@@ -67,8 +132,9 @@ async function deleteProgram(id) {
 }
 
 // ---------- Trainers (Rampex staff) ----------
-async function listTrainers() {
-  return db.query('SELECT id, name, expertise, email, phone FROM trainers ORDER BY id');
+async function listTrainers({ archived = false } = {}) {
+  const arch = archived ? 'archived_at IS NOT NULL' : 'archived_at IS NULL';
+  return db.query(`SELECT id, name, expertise, email, phone FROM trainers WHERE ${arch} ORDER BY id`);
 }
 
 async function createTrainer(body = {}) {
@@ -180,9 +246,10 @@ async function getTrainerDetail(id) {
 }
 
 // ---------- Batches ----------
-async function listBatches(scope) {
+async function listBatches(scope, { archived = false } = {}) {
   const visible = await visibleBatchIds(db, scope);
-  const rows = await db.query('SELECT * FROM batches ORDER BY batch_key DESC');
+  const arch = archived ? 'archived_at IS NOT NULL' : 'archived_at IS NULL';
+  const rows = await db.query(`SELECT * FROM batches WHERE ${arch} ORDER BY batch_key DESC`);
   const withMeta = await Promise.all(rows.map((b) => batchWithMeta(db, b)));
   if (visible !== null) return withMeta.filter((b) => visible.includes(b.id));
   return withMeta;
@@ -294,9 +361,12 @@ async function deleteBatch(id) {
  * Organization sees all students across the platform.
  */
 async function listStudents(scope, opts = {}) {
-  const { batch_id = '', search = '' } = opts;
+  const { batch_id = '', search = '', archived = false } = opts;
+  // Archive view (audit D8): live rows and archived rows never mix.
+  const keep = (r) => (archived ? !!r.archived_at : !r.archived_at);
   if (scope.role === 'student') {
-    return db.query('SELECT * FROM students WHERE id = ?', [scope.student_id]);
+    const rows = await db.query('SELECT * FROM students WHERE id = ?', [scope.student_id]);
+    return rows.filter(keep);
   }
   // Institution: read-only view of their own students (scoped by customer_id)
   if (scope.role === 'institution') {
@@ -315,7 +385,7 @@ async function listStudents(scope, opts = {}) {
       params.push(s, s, s);
     }
     sql += ` GROUP BY s.id ORDER BY s.id`;
-    const rows = await db.query(sql, params);
+    const rows = (await db.query(sql, params)).filter(keep);
     return Promise.all(rows.map(async (s) => {
       const att = await db.get(
         `SELECT COUNT(*) AS total,
@@ -356,7 +426,7 @@ async function listStudents(scope, opts = {}) {
       sql += ` WHERE ` + conditions.join(' AND ');
     }
     sql += ` GROUP BY s.id ORDER BY s.id`;
-    const rows = await db.query(sql, params);
+    const rows = (await db.query(sql, params)).filter(keep);
     return Promise.all(rows.map(async (s) => {
       const att = await db.get(
         `SELECT COUNT(*) AS total,
@@ -396,7 +466,7 @@ async function listStudents(scope, opts = {}) {
     params.push(s, s, s);
   }
   sql += ` ORDER BY s.id`;
-  const rows = await db.query(sql, params);
+  const rows = (await db.query(sql, params)).filter(keep);
   // Enrich with the batch/program label + attendance % the "My Students" table renders.
   return Promise.all(
     rows.map(async (s) => {
@@ -428,6 +498,24 @@ async function listStudents(scope, opts = {}) {
  * Organization (Rampex): add anywhere — customer_id or batch_id required.
  * Trainer: add + enrol into batch (existing behaviour).
  */
+/** Duplicate guard (audit E7) — same email anywhere, or same name at one customer. */
+async function assertNoDuplicateStudent(conn, { name, email, customerId }) {
+  const em = str(email);
+  const dupe = em
+    ? await conn.get(
+        `SELECT id, name FROM students
+          WHERE LOWER(email) = LOWER(?)
+             OR (customer_id = ? AND LOWER(name) = LOWER(?))
+          LIMIT 1`,
+        [em, customerId, str(name)]
+      )
+    : await conn.get(
+        'SELECT id, name FROM students WHERE customer_id = ? AND LOWER(name) = LOWER(?) LIMIT 1',
+        [customerId, str(name)]
+      );
+  if (dupe) throw conflict(`Duplicate student — "${dupe.name}" already exists as ${dupe.id}`);
+}
+
 async function createStudent(scope, body = {}) {
   requireFields(body, ['name']);
   // Organization manages students platform-wide (batches, capacity enforced).
@@ -448,6 +536,7 @@ async function createStudent(scope, body = {}) {
       if (!(await tx.get('SELECT 1 AS ok FROM customers WHERE id = ?', [customerId]))) {
         throw badRequest('Unknown customer_id');
       }
+      await assertNoDuplicateStudent(tx, { name: body.name, email: body.email, customerId });
       const id = await nid(tx, 'STU', 'students');
       await tx.run(
         'INSERT INTO students (id, name, email, phone, customer_id) VALUES (?,?,?,?,?)',
@@ -456,12 +545,14 @@ async function createStudent(scope, body = {}) {
       if (body.batch_id) {
         await tx.run('INSERT INTO enrollments (student_id, batch_id) VALUES (?,?)', [id, str(body.batch_id)]);
       }
-      return tx.get('SELECT * FROM students WHERE id = ?', [id]);
+      const { login } = await provisionStudentLogin(tx, id, { name: body.name, email: body.email, password: body.password });
+      return { ...(await tx.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
     });
   }
   // Institution can add students to their own college
   if (scope.role === 'institution') {
     if (!scope.customer_id) throw forbidden('No institution linked to this login');
+    await assertNoDuplicateStudent(db, { name: body.name, email: body.email, customerId: scope.customer_id });
     const id = await nid(db, 'STU', 'students');
     await db.run(
       'INSERT INTO students (id, name, email, phone, customer_id) VALUES (?,?,?,?,?)',
@@ -474,7 +565,8 @@ async function createStudent(scope, body = {}) {
         await db.run('INSERT INTO enrollments (student_id, batch_id) VALUES (?,?)', [id, str(body.batch_id)]);
       }
     }
-    return db.get('SELECT * FROM students WHERE id = ?', [id]);
+    const { login } = await provisionStudentLogin(db, id, { name: body.name, email: body.email, password: body.password });
+    return { ...(await db.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
   }
   if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer or institution can add students');
   return db.transaction(async (tx) => {
@@ -493,6 +585,7 @@ async function createStudent(scope, body = {}) {
       if (count >= batch.capacity) throw conflict('Batch is at full capacity');
     }
     if (!customerId) throw badRequest('customer_id or batch_id required to place the student');
+    await assertNoDuplicateStudent(tx, { name: body.name, email: body.email, customerId });
     const id = await nid(tx, 'STU', 'students');
     await tx.run(
       'INSERT INTO students (id, name, email, phone, customer_id) VALUES (?,?,?,?,?)',
@@ -501,7 +594,8 @@ async function createStudent(scope, body = {}) {
     if (body.batch_id) {
       await tx.run('INSERT INTO enrollments (student_id, batch_id) VALUES (?,?)', [id, str(body.batch_id)]);
     }
-    return tx.get('SELECT * FROM students WHERE id = ?', [id]);
+    const { login } = await provisionStudentLogin(tx, id, { name: body.name, email: body.email, password: body.password });
+    return { ...(await tx.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
   });
 }
 
@@ -539,7 +633,7 @@ async function createEnrollment(scope, body = {}) {
 }
 
 // ---------- Attendance (FLOW I) ----------
-const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
+const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
 
 async function listAttendance(scope, { batch_id = '', date = '' } = {}) {
   let sql = `SELECT a.student_id, a.batch_id, a.date, a.status, a.marked_at, s.name AS student_name
@@ -688,7 +782,27 @@ async function updateStudent(scope, id, body = {}) {
   const email = body.email !== undefined ? str(body.email) : student.email;
   const phone = body.phone !== undefined ? str(body.phone) : student.phone;
   await db.run('UPDATE students SET name = ?, email = ?, phone = ? WHERE id = ?', [name, email, phone, id]);
-  return db.get('SELECT * FROM students WHERE id = ?', [id]);
+  // Keep the login in sync: email edits rename the login too, and adding an
+  // email to a login-less student provisions one (optionally with body.password).
+  let login = null;
+  const fresh = await db.get('SELECT * FROM students WHERE id = ?', [id]);
+  if (body.email !== undefined && str(body.email)) {
+    const em = str(body.email).toLowerCase();
+    if (fresh.user_id) {
+      const clash = await db.get('SELECT id FROM users WHERE LOWER(email) = ? AND id <> ?', [em, fresh.user_id]);
+      if (clash) throw conflict(`A user with email ${em} already exists`);
+      await db.run('UPDATE users SET email = ?, name = ? WHERE id = ?', [em, name, fresh.user_id]);
+      if (body.password && str(body.password).length >= 6) {
+        await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(str(body.password)), fresh.user_id]);
+        login = { email: em, password: str(body.password), emailed: false, user_id: fresh.user_id };
+      }
+    } else {
+      ({ login } = await provisionStudentLogin(db, id, { name, email: em, password: body.password }));
+    }
+  } else if (body.password && str(body.password).length >= 6 && fresh.user_id) {
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(str(body.password)), fresh.user_id]);
+  }
+  return { ...(await db.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
 }
 
 async function deleteStudent(scope, id) {
@@ -701,6 +815,11 @@ async function deleteStudent(scope, id) {
   await db.run('DELETE FROM attendance WHERE student_id = ?', [id]);
   await db.run('DELETE FROM scores WHERE student_id = ?', [id]);
   await db.run('DELETE FROM students WHERE id = ?', [id]);
+  // Remove the provisioned login so the email can be reused and no orphan
+  // credential keeps working after the student is gone.
+  if (student.user_id) {
+    await db.run('DELETE FROM users WHERE id = ?', [student.user_id]);
+  }
   return { deleted: true, id };
 }
 
@@ -736,6 +855,7 @@ async function bulkCreateStudents(scope, body = {}) {
         name: studentData.name,
         email: studentData.email,
         phone: studentData.phone,
+        password: studentData.password,
         batch_id: body.batch_id,
       });
       results.created.push(student);

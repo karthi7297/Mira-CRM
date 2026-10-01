@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
-import { exportAssessmentPDF, exportAssessmentExcel } from '../exportReport';
+import { exportAssessmentPDF, exportAssessmentExcel, exportBatchPDF, exportOverallPDF } from '../exportReport';
+import AiInsights from '../AiInsights';
+import { useListControls, ListToolbar, Pager, SortHeader, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, ListState, DateRange, ArchiveToggle } from '../listkit';
 
 function parseCSV(csvText) {
   const lines = csvText.trim().split('\n');
@@ -72,10 +74,31 @@ export function Programs() {
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editF, setEditF] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
 
   const canManage = user?.role === 'organization';
-  const load = () => api.programs().then(setRows).catch((e) => setMsg(e.message));
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    setLoading(true); setLoadErr('');
+    return api.programs(archived ? '?archived=1' : '').then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [archived]);
+
+  const doArchive = async (p) => {
+    if (!window.confirm(`Archive program "${p.name}" (${p.id})? It leaves the list but stays recoverable.`)) return;
+    try { await api.archive('programs', p.id); toast('Program archived'); load(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+  const doRestore = async (p) => {
+    try { await api.restore('programs', p.id); toast('Program restored'); load(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+
+  const L = useListControls(rows, {
+    searchKeys: ['id', 'name', 'duration'],
+    initialSort: { key: 'name', dir: 'asc' },
+  });
 
   const create = async (e) => {
     e.preventDefault();
@@ -126,7 +149,9 @@ export function Programs() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      {canManage && (
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No programs yet." />
+
+      {canManage && !loading && (
         <form onSubmit={create} className="form narrow mb">
           <input required placeholder="Program name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
           <input placeholder="Duration" value={f.duration || ''} onChange={(e) => setF({ ...f, duration: e.target.value })} />
@@ -135,9 +160,13 @@ export function Programs() {
         </form>
       )}
 
-      {rows.length === 0 && <p className="empty">No programs yet.</p>}
+      {!loading && !loadErr && (rows.length > 0 || archived) && (
+        <ListToolbar L={L} placeholder="Search programs…" sortOptions={[['name', 'Name'], ['fee_per_student', 'Fee'], ['batch_count', 'Batches']]}>
+          <ArchiveToggle value={archived} onChange={setArchived} />
+        </ListToolbar>
+      )}
       <div className="cards">
-        {rows.map((p) => (
+        {L.rows.map((p) => (
           <div className="card" key={p.id}>
             <h4>{p.id}</h4>
             <b className="sm">{p.name}</b>
@@ -145,12 +174,18 @@ export function Programs() {
             {canManage && (
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <button className="btn sm ghost" onClick={() => openEdit(p)}>Edit</button>
+                {archived
+                  ? <button className="btn sm ghost" onClick={() => doRestore(p)}>Restore</button>
+                  : <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(p)}>Archive</button>}
                 <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(p)}>Delete</button>
               </div>
             )}
           </div>
         ))}
       </div>
+      {rows.length > 0 && L.total === 0 && <p className="empty">No programs match your search.</p>}
+      {rows.length === 0 && archived && !loading && <p className="empty">No archived programs.</p>}
+      <Pager L={L} />
 
       {editId && (
         <div className="modal">
@@ -179,10 +214,31 @@ export function Trainers() {
   const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
 
   const canManage = user?.role === 'organization';
-  const load = () => api.trainers().then(setRows).catch((e) => setMsg(e.message));
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    setLoading(true); setLoadErr('');
+    return api.trainers(archived ? '?archived=1' : '').then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [archived]);
+
+  const doArchive = async (t) => {
+    if (!window.confirm(`Archive trainer "${t.name}" (${t.id})? It leaves the list but stays recoverable.`)) return;
+    try { await api.archive('trainers', t.id); toast('Trainer archived'); load(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+  const doRestore = async (t) => {
+    try { await api.restore('trainers', t.id); toast('Trainer restored'); load(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+
+  const L = useListControls(rows, {
+    searchKeys: ['id', 'name', 'expertise', 'email', 'phone'],
+    initialSort: { key: 'name', dir: 'asc' },
+  });
 
   const openCreate = () => { setMsg(''); setEditing(null); setF({}); setShow(true); };
 
@@ -239,12 +295,26 @@ export function Trainers() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No trainers yet." />
+
+      {!loading && !loadErr && (rows.length > 0 || archived) && (
+        <ListToolbar L={L} placeholder="Search trainers…" sortOptions={[['name', 'Name'], ['expertise', 'Expertise']]}>
+          <ArchiveToggle value={archived} onChange={setArchived} />
+        </ListToolbar>
+      )}
       <table>
         <thead>
-          <tr><th>ID</th><th>Name</th><th>Expertise</th><th>Email</th><th>Phone</th><th></th>{canManage && <th>Actions</th>}</tr>
+          <tr>
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Name" k="name" L={L} />
+            <SortHeader label="Expertise" k="expertise" L={L} />
+            <SortHeader label="Email" k="email" L={L} />
+            <SortHeader label="Phone" k="phone" L={L} />
+            <th></th>{canManage && <th>Actions</th>}
+          </tr>
         </thead>
         <tbody>
-          {rows.map((t) => (
+          {L.rows.map((t) => (
             <tr key={t.id}>
               <td className="mono">{t.id}</td>
               <td><b>{t.name}</b></td>
@@ -255,6 +325,9 @@ export function Trainers() {
               {canManage && (
                 <td>
                   <button className="btn sm ghost" onClick={() => openEdit(t)}>Edit</button>
+                  {archived
+                    ? <button className="btn sm ghost" onClick={() => doRestore(t)}>Restore</button>
+                    : <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(t)}>Archive</button>}
                   <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(t)}>Delete</button>
                 </td>
               )}
@@ -262,7 +335,9 @@ export function Trainers() {
           ))}
         </tbody>
       </table>
-      {rows.length === 0 && <p className="empty">No trainers yet.</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No trainers match your search.</p>}
+      {rows.length === 0 && archived && !loading && <p className="empty">No archived trainers.</p>}
+      <Pager L={L} />
 
       {show && (
         <div className="modal">
@@ -297,16 +372,45 @@ export function Batches() {
   const [custs, setCusts] = useState([]);
   const [trs, setTrs] = useState([]);
 
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
+
   const canManage = user?.role === 'organization';
   // Editing: org edits any batch, an institution edits only its own (DELETE stays org-only).
   const canEdit = canManage || user?.role === 'institution';
 
+  const loadBatches = () => {
+    setLoading(true); setLoadErr('');
+    return api.batches(archived ? '?archived=1' : '').then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
+  };
   useEffect(() => {
-    api.batches().then(setRows).catch((e) => setMsg(e.message));
     api.programs().then(setProgs);
     api.customers().then(setCusts);
     api.trainers().then(setTrs);
   }, []);
+  useEffect(() => { loadBatches(); }, [archived]);
+
+  const doArchive = async (b) => {
+    if (!window.confirm(`Archive batch ${b.id}? It leaves the list but stays recoverable.`)) return;
+    try { await api.archive('batches', b.id); toast(`Batch ${b.id} archived`); loadBatches(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+  const doRestore = async (b) => {
+    try { await api.restore('batches', b.id); toast(`Batch ${b.id} restored`); loadBatches(); }
+    catch (ex) { setMsg(ex.message); }
+  };
+
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const baseBatches = useMemo(
+    () => rows.filter((b) => statusFilter === 'ALL' || b.status === statusFilter),
+    [rows, statusFilter],
+  );
+  const L = useListControls(baseBatches, {
+    searchKeys: ['id', 'program_name', 'customer_name', 'trainer_name', 'status'],
+    initialSort: { key: 'id', dir: 'asc' },
+    dateKey: 'start_date',
+  });
 
   const openCreate = () => { setMsg(''); setEditing(null); setF({}); setShow(true); };
 
@@ -341,7 +445,7 @@ export function Batches() {
       setShow(false);
       setEditing(null);
       setF({});
-      api.batches().then(setRows);
+      loadBatches();
     } catch (ex) {
       setMsg(ex.message);
     } finally {
@@ -355,7 +459,7 @@ export function Batches() {
     try {
       await api.deleteBatch(b.id);
       toast(`✓ Batch ${b.id} deleted`);
-      api.batches().then(setRows);
+      loadBatches();
     } catch (ex) {
       setMsg(ex.message);
     }
@@ -372,22 +476,49 @@ export function Batches() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
+      <ListState loading={loading} error={loadErr} onRetry={loadBatches} empty={!loading && !loadErr && rows.length === 0} emptyText="No batches yet." />
+
+      {!loading && !loadErr && (rows.length > 0 || archived) && (
+        <ListToolbar L={L} placeholder="Search batches…" sortOptions={[['id', 'Batch'], ['program_name', 'Program'], ['customer_name', 'Customer'], ['student_count', 'Students'], ['status', 'Status']]}>
+          <select className="select-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status" style={{ minWidth: 140 }}>
+            <option value="ALL">All Statuses</option>
+            {['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED'].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <DateRange L={L} label="Starts" />
+          <ArchiveToggle value={archived} onChange={setArchived} />
+        </ListToolbar>
+      )}
       <table>
         <thead>
-          <tr><th>Batch</th><th>Program</th><th>Customer</th><th>Trainer</th><th>Students</th><th>Status</th>{canEdit && <th>Actions</th>}</tr>
+          <tr>
+            <SortHeader label="Batch" k="id" L={L} />
+            <SortHeader label="Program" k="program_name" L={L} />
+            <SortHeader label="Customer" k="customer_name" L={L} />
+            <SortHeader label="Trainer" k="trainer_name" L={L} />
+            <SortHeader label="Students" k="student_count" L={L} />
+            <SortHeader label="Starts" k="start_date" L={L} />
+            <SortHeader label="Status" k="status" L={L} />
+            {canEdit && <th>Actions</th>}
+          </tr>
         </thead>
         <tbody>
-          {rows.map((b) => (
+          {L.rows.map((b) => (
             <tr key={b.id}>
               <td><Link to={'/batches/' + b.id}>{b.id}</Link></td>
               <td>{b.program_name}</td>
               <td>{b.customer_name}</td>
               <td>{b.trainer_name || '—'}</td>
               <td>{b.student_count}</td>
+              <td>{b.start_date || '—'}</td>
               <td><span className={'chip ' + b.status}>{b.status}</span></td>
               {canEdit && (
                 <td>
                   <button className="btn sm ghost" onClick={() => openEdit(b)}>Edit</button>
+                  {canManage && (
+                    archived
+                      ? <button className="btn sm ghost" onClick={() => doRestore(b)}>Restore</button>
+                      : <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(b)}>Archive</button>
+                  )}
                   {canManage && (
                     <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(b)}>Delete</button>
                   )}
@@ -397,7 +528,9 @@ export function Batches() {
           ))}
         </tbody>
       </table>
-      {rows.length === 0 && <p className="empty">No batches yet.</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No batches match your filters.</p>}
+      {rows.length === 0 && archived && !loading && <p className="empty">No archived batches.</p>}
+      <Pager L={L} />
 
       {show && (
         <div className="modal">
@@ -637,16 +770,31 @@ export function Students() {
   const [formBusy, setFormBusy] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [reportStudent, setReportStudent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
 
   const load = () => {
     const params = {};
     if (batchFilter !== 'ALL') params.batch_id = batchFilter;
     if (q.trim()) params.search = q.trim();
-    api.students(params).then(setRows).catch((e) => setErr(e.message));
+    if (archived) params.archived = 1;
+    setLoading(true); setLoadErr('');
+    api.students(params).then(setRows).catch((e) => { setLoadErr(e.message); setErr(e.message); }).finally(() => setLoading(false));
     api.batches().then(setBatches).catch(() => {});
   };
 
-  useEffect(() => { load(); }, [batchFilter, q]);
+  useEffect(() => { load(); }, [batchFilter, q, archived]);
+
+  const doArchive = async (s) => {
+    if (!window.confirm(`Archive student "${s.name}" (${s.id})? It leaves the roster but stays recoverable.`)) return;
+    try { await api.archive('students', s.id); toast(`Student ${s.id} archived`); load(); }
+    catch (ex) { setErr(ex.message); }
+  };
+  const doRestore = async (s) => {
+    try { await api.restore('students', s.id); toast(`Student ${s.id} restored`); load(); }
+    catch (ex) { setErr(ex.message); }
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -659,13 +807,19 @@ export function Students() {
     setFormBusy(true);
     setErr('');
     try {
-      await api.createStudent({
+      const created = await api.createStudent({
         name: addForm.name,
         email: addForm.email,
         phone: addForm.phone,
         batch_id: addForm.batch_id || undefined,
       });
-      toast('Student successfully added!');
+      if (created?.login?.password) {
+        toast(`Student added! Login: ${created.login.email} / ${created.login.password}${created.login.emailed ? ' (emailed)' : ''}`);
+      } else if (addEmail) {
+        toast('Student successfully added!');
+      } else {
+        toast('Student added! (No email — add one to enable login)');
+      }
       setShowAdd(false);
       setAddForm({});
       load();
@@ -726,6 +880,24 @@ export function Students() {
   const goodAttendance = rows.filter((s) => Number(s.attendance || 0) >= 75).length;
   const isInstitution = user?.role === 'institution';
 
+  // Client-side sort + pagination + bulk selection over the (server-filtered) roster.
+  const L = useListControls(rows, {
+    searchKeys: ['id', 'name', 'batch_label', 'program', 'email', 'phone'],
+    initialSort: { key: 'id', dir: 'asc' },
+    dateKey: 'created_at',
+  });
+  const bulk = useBulkSelection();
+
+  const bulkDelete = async () => {
+    if (!window.confirm(`Delete ${bulk.size} selected student(s) and all their attendance, scores and certificates?`)) return;
+    for (const id of bulk.ids) {
+      try { await api.deleteStudent(id); } catch { /* keep going */ }
+    }
+    toast(`Removed ${bulk.size} student(s)`);
+    bulk.clear();
+    load();
+  };
+
   return (
     <div>
       <div className="page-head">
@@ -760,6 +932,7 @@ export function Students() {
       </div>
 
       {err && <div className="err">{err}</div>}
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={false} />
 
       <div className="cards">
         <div className="card" style={{ borderLeft: '4px solid var(--info, #2c4f8c)' }}>
@@ -779,19 +952,22 @@ export function Students() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <select
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1' }}
-            value={batchFilter}
-            onChange={(e) => setBatchFilter(e.target.value)}
-          >
-            <option value="ALL">All Batches</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>{b.id} ({b.program_name || 'Batch'})</option>
-            ))}
-          </select>
-        </div>
+      <ListToolbar
+        L={L}
+        hideSearch
+        sortOptions={[['id', 'ID'], ['name', 'Name'], ['batch_label', 'Batch'], ['program', 'Program'], ['attendance', 'Attendance']]}
+      >
+        <select
+          className="select-sm"
+          value={batchFilter}
+          onChange={(e) => setBatchFilter(e.target.value)}
+          aria-label="Filter by batch"
+        >
+          <option value="ALL">All Batches</option>
+          {batches.map((b) => (
+            <option key={b.id} value={b.id}>{b.id} ({b.program_name || 'Batch'})</option>
+          ))}
+        </select>
         <input
           className="search-input"
           style={{ maxWidth: 300, margin: 0 }}
@@ -799,25 +975,39 @@ export function Students() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-      </div>
+        <DateRange L={L} label="Joined" />
+        <ArchiveToggle value={archived} onChange={setArchived} />
+      </ListToolbar>
+
+      <BulkBar bulk={bulk}>
+        <button type="button" className="btn sm ghost" onClick={() => downloadCsv('students-selected.csv', [
+          { label: 'ID', value: 'id' }, { label: 'Name', value: 'name' },
+          { label: 'Batch', value: 'batch_label' }, { label: 'Program', value: 'program' },
+          { label: 'Attendance %', value: 'attendance' },
+        ], L.all.filter((s) => bulk.has(s.id)))}>Export selected</button>
+        <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={bulkDelete}>Delete selected</button>
+      </BulkBar>
 
       <table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Batch</th>
-            <th>Program</th>
-            <th>Attendance</th>
+            <SelectAllTh bulk={bulk} ids={L.rows.map((s) => s.id)} />
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Name" k="name" L={L} />
+            <SortHeader label="Batch" k="batch_label" L={L} />
+            <SortHeader label="Program" k="program" L={L} />
+            <SortHeader label="Attendance" k="attendance" L={L} />
+            <SortHeader label="Joined" k="created_at" L={L} />
             <th>Contact</th>
             <th>Manage</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((s) => {
+          {L.rows.map((s) => {
             const att = Number(s.attendance || 0);
             return (
               <tr key={s.id}>
+                <td><input type="checkbox" aria-label={`Select ${s.id}`} checked={bulk.has(s.id)} onChange={() => bulk.toggle(s.id)} /></td>
                 <td className="mono"><b>{s.id}</b></td>
                 <td><b>{s.name}</b></td>
                 <td>{s.batch_label || '—'}</td>
@@ -825,11 +1015,15 @@ export function Students() {
                 <td style={{ minWidth: 170 }}>
                   <AttendanceBar value={att} />
                 </td>
+                <td>{(s.created_at || '').slice(0, 10) || '—'}</td>
                 <td className="meta">{s.email || '—'}{s.phone ? ` · ${s.phone}` : ''}</td>
                 <td>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button type="button" className="btn sm ghost" onClick={() => handleReport(s.id)}>Report</button>
                     <button type="button" className="btn sm ghost" onClick={() => setEditStudent(s)}>Edit</button>
+                    {archived
+                      ? <button type="button" className="btn sm ghost" onClick={() => doRestore(s)}>Restore</button>
+                      : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(s)}>Archive</button>}
                     <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => handleDelete(s.id, s.name)}>Delete</button>
                   </div>
                 </td>
@@ -838,8 +1032,9 @@ export function Students() {
           })}
         </tbody>
       </table>
-      {rows.length === 0 && <p className="empty">No students registered yet. Click &quot;+ Add Student&quot; to begin.</p>}
-      {rows.length === 0 && <p className="empty">No students match the current filter.</p>}
+      {!loading && !loadErr && rows.length === 0 && <p className="empty">{archived ? 'No archived students.' : 'No students registered yet. Click "+ Add Student" to begin.'}</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No students match the current filter.</p>}
+      <Pager L={L} />
 
       {/* Add Student Modal */}
       {showAdd && (
@@ -847,7 +1042,7 @@ export function Students() {
           <div>
             <h3>Add New Student</h3>
             <p style={{ fontSize: 13, color: '#64748b', marginBottom: 14 }}>
-              Register a student under your institutional account and optionally enrol into an active batch.
+              Register a student under your institutional account and optionally enrol into an active batch. Adding an email creates their login automatically — the temp password is shown once and emailed when mail is connected.
             </p>
             <form onSubmit={handleAdd} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Full Name *</label>
@@ -972,6 +1167,8 @@ export function Students() {
               Interests: {(reportStudent.interests || []).map((i) => i.body).join(' · ') || '—'}
             </p>
 
+            <AiInsights studentId={reportStudent.id} />
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
               <button type="button" className="btn" onClick={() => setReportStudent(null)}>Close</button>
             </div>
@@ -996,6 +1193,7 @@ export function Attendance() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState([]);
   const [msg, setMsg] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   // Land on the trainer's own first batch rather than a hard-coded id, and
   // default the date to today — this is a daily tool over a short roster.
@@ -1006,36 +1204,63 @@ export function Attendance() {
   }, []);
 
   const load = async () => {
-    if (!bid) { setRows([]); return; }
+    if (!bid) { setRows([]); setDirty(false); return; }
     setMsg('Loading…');
     try {
       const b = await api.batch(bid);
       const att = await api.attendance(`?batch_id=${bid}&date=${date}`);
       const map = Object.fromEntries(att.map((a) => [a.student_id, a.status]));
       setRows(b.students.map((s) => ({ student_id: s.id, name: s.name, status: map[s.id] || 'PRESENT' })));
+      setDirty(false);
       setMsg('');
     } catch (e) {
       setMsg(e.message);
       setRows([]);
+      setDirty(false);
     }
   };
   useEffect(() => { load(); }, [bid, date]);
 
+  // Warn before leaving with unsaved marks (audit B7) — covers refresh/close
+  // and in-app navigation away from the module.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  const switchBatch = (next) => {
+    if (dirty && !window.confirm('You have unsaved attendance changes. Discard them?')) return;
+    setDirty(false);
+    setBid(next);
+  };
+  const switchDate = (next) => {
+    if (dirty && !window.confirm('You have unsaved attendance changes. Discard them?')) return;
+    setDirty(false);
+    setDate(next);
+  };
+
   const save = async () => {
+    // Hard guard (audit B10): never claim success without a batch + roster.
+    if (!bid || !rows.length) { setMsg('Select a batch with students before saving'); return; }
     try {
       await api.saveAttendance({
         batch_id: bid,
         date,
         records: rows.map((r) => ({ student_id: r.student_id, status: r.status })),
       });
+      setDirty(false);
       setMsg('✓ Attendance saved');
     } catch (e) {
       setMsg(e.message);
     }
   };
 
-  const setStatus = (sid, status) =>
+  const setStatus = (sid, status) => {
+    setDirty(true);
     setRows(rows.map((x) => (x.student_id === sid ? { ...x, status } : x)));
+  };
 
   return (
     <div>
@@ -1044,15 +1269,16 @@ export function Attendance() {
           <h2>Attendance</h2>
           <p className="sub">Mark daily attendance for the batches assigned to you.</p>
         </div>
+        {dirty && <span className="chip LATE">Unsaved changes</span>}
       </div>
 
       <div className="toolbar">
-        <select className="select-sm" value={bid} onChange={(e) => setBid(e.target.value)} disabled={!batches.length}>
+        <select className="select-sm" value={bid} onChange={(e) => switchBatch(e.target.value)} disabled={!batches.length}>
           {batches.map((b) => <option key={b.id} value={b.id}>{b.id}</option>)}
         </select>
-        <input className="select-sm" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <input className="select-sm" type="date" value={date} onChange={(e) => switchDate(e.target.value)} />
         <button type="button" className="btn ghost" onClick={load} disabled={!bid}>Load</button>
-        <button type="button" className="btn ghost" disabled={!rows.length} onClick={() => setRows(rows.map((r) => ({ ...r, status: 'PRESENT' })))}>
+        <button type="button" className="btn ghost" disabled={!rows.length} onClick={() => { setDirty(true); setRows(rows.map((r) => ({ ...r, status: 'PRESENT' }))); }}>
           Mark all present
         </button>
         <button type="button" className="btn" onClick={save} disabled={!rows.length}>Save attendance</button>
@@ -1070,7 +1296,7 @@ export function Attendance() {
               <td><span className={'chip ' + r.status}>{r.status}</span></td>
               <td>
                 <div className="seg">
-                  {['PRESENT', 'ABSENT', 'LATE'].map((s) => (
+                  {['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'].map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -1423,9 +1649,11 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
 
       const successCount = result.created?.length || 0;
       const failedCount = result.failed?.length || 0;
+      const withCreds = (result.created || []).filter((s) => s?.login?.password);
+      const emailedCount = withCreds.filter((s) => s?.login?.emailed).length;
 
       if (successCount > 0) {
-        toast(`✓ ${successCount} student(s) added successfully`);
+        toast(`✓ ${successCount} student(s) added successfully${withCreds.length ? ` — ${withCreds.length} login(s) created${emailedCount ? ` (${emailedCount} emailed)` : ''}` : ''}`);
       }
       if (failedCount > 0) {
         console.error('Bulk add errors:', result.failed);
@@ -1639,6 +1867,20 @@ export function Assessments() {
     }
   };
 
+  const togglePublish = async (a) => {
+    const next = (a.status || 'DRAFT') === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+    try {
+      setMsg('');
+      await api.updateAssessment(a.id, { status: next });
+      toast(next === 'PUBLISHED'
+        ? '✓ Published — now visible to students & institution'
+        : '✓ Moved back to draft (hidden from students)');
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
   const handleExport = async (a, kind) => {
     const key = `${a.id}:${kind}`;
     try {
@@ -1655,21 +1897,81 @@ export function Assessments() {
     }
   };
 
-  const canManage = user?.role === 'organization' || user?.role === 'institution' || user?.role === 'trainer';
+  const canEnter = user?.role === 'organization' || user?.role === 'trainer';
+  const [reportBatch, setReportBatch] = useState('');
+  const [downloading, setDownloading] = useState('');
+
+  const downloadBatchReport = async () => {
+    if (!reportBatch) { setMsg('Select a batch first'); return; }
+    try {
+      setDownloading('batch');
+      setMsg('');
+      const report = await api.batchReport(reportBatch);
+      await exportBatchPDF(report);
+      toast('✓ Batch PDF report downloaded');
+    } catch (ex) {
+      setMsg(ex.message);
+    } finally {
+      setDownloading('');
+    }
+  };
+
+  const downloadOverallReport = async () => {
+    try {
+      setDownloading('overall');
+      setMsg('');
+      const report = await api.overallReport();
+      await exportOverallPDF(report);
+      toast('✓ Overall PDF report downloaded');
+    } catch (ex) {
+      setMsg(ex.message);
+    } finally {
+      setDownloading('');
+    }
+  };
 
   return (
     <div>
       <div className="page-head">
         <div>
           <h2>Assessments & Marks</h2>
-          <p className="sub">Create assessments, enter marks, and track student performance across batches.</p>
+          <p className="sub">{canEnter ? 'Create assessments, enter marks, and track student performance across batches.' : 'View assessments and marks entered by your trainers (read-only).'}</p>
         </div>
-        {canManage && (
+        {canEnter && (
           <button className="btn" onClick={() => setShowCreate(true)}>+ Create Assessment</button>
         )}
       </div>
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
+
+      <div className="card" style={{ borderLeft: '4px solid var(--info, #2c4f8c)', marginBottom: 16 }}>
+        <h4 style={{ margin: '0 0 4px' }}>Batch & Overall Reports</h4>
+        <p className="meta" style={{ margin: '0 0 12px' }}>
+          {user?.role === 'institution'
+            ? 'Download a detailed professional PDF for one batch, or for all your batches combined — same analysis format as the per-assessment report.'
+            : 'Download a detailed professional PDF per batch or across all batches in scope.'}
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            className="select-sm"
+            value={reportBatch}
+            onChange={(e) => setReportBatch(e.target.value)}
+            style={{ minWidth: 220 }}
+            aria-label="Report batch"
+          >
+            <option value="">Select batch…</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+            ))}
+          </select>
+          <button type="button" className="btn sm" onClick={downloadBatchReport} disabled={!reportBatch || !!downloading}>
+            {downloading === 'batch' ? 'Preparing…' : 'Download Batch PDF'}
+          </button>
+          <button type="button" className="btn sm ghost" onClick={downloadOverallReport} disabled={!!downloading}>
+            {downloading === 'overall' ? 'Preparing…' : (user?.role === 'institution' ? 'Download All-Batches PDF' : 'Download Overall PDF')}
+          </button>
+        </div>
+      </div>
 
       {loading ? (
         <div className="loading">Loading assessments…</div>
@@ -1699,6 +2001,7 @@ export function Assessments() {
                 <th>Date</th>
                 <th>Max Score</th>
                 <th>Scores Entered</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1712,32 +2015,44 @@ export function Assessments() {
                   <td>{a.max_score}</td>
                   <td>{a.score_count || 0}</td>
                   <td>
+                    <span className={'chip ' + ((a.status || 'DRAFT') === 'PUBLISHED' ? 'PAID' : 'LATE')}>
+                      {(a.status || 'DRAFT') === 'PUBLISHED' ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+                  <td>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {canManage && (
+                      <button className="btn sm ghost" onClick={() => loadScores(a.id)}>
+                        {showScores === a.id ? 'Hide Scores' : (canEnter ? 'View/Enter Scores' : 'View Scores')}
+                      </button>
+                      {canEnter && (
                         <>
-                          <button className="btn sm ghost" onClick={() => loadScores(a.id)}>
-                            {showScores === a.id ? 'Hide Scores' : 'View/Enter Scores'}
+                          <button
+                            className="btn sm ghost"
+                            onClick={() => togglePublish(a)}
+                            title={(a.status || 'DRAFT') === 'PUBLISHED' ? 'Hide marks from students' : 'Publish marks to students & institution'}
+                          >
+                            {(a.status || 'DRAFT') === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
                           </button>
                           <button className="btn sm ghost" onClick={() => handleEditClick(a)}>Edit</button>
                           <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => deleteAssessment(a.id)}>Delete</button>
-                          <button
-                            className="btn sm ghost"
-                            onClick={() => handleExport(a, 'pdf')}
-                            disabled={!!exporting}
-                            title="Download a professional PDF report with full analysis"
-                          >
-                            {exporting === a.id + ':pdf' ? '…' : 'PDF'}
-                          </button>
-                          <button
-                            className="btn sm ghost"
-                            onClick={() => handleExport(a, 'excel')}
-                            disabled={!!exporting}
-                            title="Download an Excel workbook (summary, marks, distribution, insights)"
-                          >
-                            {exporting === a.id + ':excel' ? '…' : 'Excel'}
-                          </button>
                         </>
                       )}
+                      <button
+                        className="btn sm ghost"
+                        onClick={() => handleExport(a, 'pdf')}
+                        disabled={!!exporting}
+                        title="Download a professional PDF report with full analysis"
+                      >
+                        {exporting === a.id + ':pdf' ? '…' : 'PDF'}
+                      </button>
+                      <button
+                        className="btn sm ghost"
+                        onClick={() => handleExport(a, 'excel')}
+                        disabled={!!exporting}
+                        title="Download an Excel workbook (summary, marks, distribution, insights)"
+                      >
+                        {exporting === a.id + ':excel' ? '…' : 'Excel'}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1762,7 +2077,7 @@ export function Assessments() {
                   <th>Batch</th>
                   <th>Score / Max</th>
                   <th>%</th>
-                  <th>Action</th>
+                  {canEnter && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1777,40 +2092,46 @@ export function Assessments() {
                       <td><b>{s.student_name}</b></td>
                       <td>{s.batch_id}</td>
                       <td>
-                        <input
-                          type="number"
-                          min="0"
-                          max={s.max_score}
-                          step="0.5"
-                          value={currentScore ?? ''}
-                          onChange={(e) => handleScoreChange(showScores, s.student_id, e.target.value)}
-                          style={{ width: 80 }}
-                        />
-                        <span className="meta"> / {s.max_score}</span>
-                      </td>
-                      <td><b>{pct !== '—' ? pct + '%' : '—'}</b></td>
-                      <td>
-                        {canManage && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              className="btn sm"
-                              onClick={() => saveScore(showScores, s.student_id)}
-                              disabled={currentScore === undefined || currentScore === ''}
-                            >
-                              Save
-                            </button>
-                            {s.score !== null && s.score !== undefined && (
-                              <button
-                                className="btn sm ghost"
-                                style={{ color: '#ef4444' }}
-                                onClick={() => deleteScore(showScores, s.student_id)}
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
+                        {canEnter ? (
+                          <>
+                            <input
+                              type="number"
+                              min="0"
+                              max={s.max_score}
+                              step="0.5"
+                              value={currentScore ?? ''}
+                              onChange={(e) => handleScoreChange(showScores, s.student_id, e.target.value)}
+                              style={{ width: 80 }}
+                            />
+                            <span className="meta"> / {s.max_score}</span>
+                          </>
+                        ) : (
+                          <b>{s.score ?? '—'}</b>
                         )}
                       </td>
+                      <td><b>{pct !== '—' ? pct + '%' : '—'}</b></td>
+                      {canEnter && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn sm"
+                            onClick={() => saveScore(showScores, s.student_id)}
+                            disabled={currentScore === undefined || currentScore === ''}
+                          >
+                            Save
+                          </button>
+                          {s.score !== null && s.score !== undefined && (
+                            <button
+                              className="btn sm ghost"
+                              style={{ color: '#ef4444' }}
+                              onClick={() => deleteScore(showScores, s.student_id)}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      )}
                     </tr>
                   );
                 })}

@@ -57,11 +57,29 @@ async function insertDocument(db, table, { id, customer_id, program, items, disc
  */
 async function ensureColumns(db) {
   const wanted = [
-    ['campaigns', 'followup_template_id'],
+    ['campaigns', 'followup_template_id', 'TEXT'],
+    ['assessments', 'status', "TEXT NOT NULL DEFAULT 'DRAFT'"],
+    // --- Record lifecycle (audit D8) -------------------------------------
+    // Soft-archive instead of hard delete. Every archivable entity carries
+    // archived_at (NULL = live); list queries filter it out unless asked.
+    ['leads', 'archived_at', 'TEXT'],
+    ['customers', 'archived_at', 'TEXT'],
+    ['students', 'archived_at', 'TEXT'],
+    ['batches', 'archived_at', 'TEXT'],
+    ['quotations', 'archived_at', 'TEXT'],
+    ['invoices', 'archived_at', 'TEXT'],
+    ['expenses', 'archived_at', 'TEXT'],
+    ['trainers', 'archived_at', 'TEXT'],
+    ['programs', 'archived_at', 'TEXT'],
+    // --- Expense linkage (audit E5 / D21) --------------------------------
+    // Attribute a cost to a customer and/or a batch (trainer_id already exists
+    // on expenses), so spend can be sliced by institution and by delivery.
+    ['expenses', 'customer_id', 'TEXT'],
+    ['expenses', 'batch_id', 'TEXT'],
   ];
-  for (const [table, column] of wanted) {
+  for (const [table, column, def = 'TEXT'] of wanted) {
     try {
-      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
       console.log(`[db] migrated: ${table}.${column} added`);
     } catch (err) {
       const msg = String(err.message || '');
@@ -71,6 +89,71 @@ async function ensureColumns(db) {
         console.warn(`[db] migration ${table}.${column} skipped: ${msg}`);
       }
     }
+  }
+}
+
+/**
+ * Trainers became feedback authors after the first databases were created, so
+ * `feedback_forms.created_by_role` may still carry the narrower
+ * `CHECK (... IN ('ORGANIZATION','INSTITUTION'))`. A CHECK cannot be altered in
+ * place on SQLite, so the table is rebuilt. Idempotent: it no-ops once the
+ * constraint already admits TRAINER, and no-ops on a fresh database (whose DDL
+ * is already correct).
+ *
+ * foreign_keys is switched OFF around the rebuild so SQLite does not rewrite
+ * feedback_questions.form_id — which must keep pointing at `feedback_forms`.
+ */
+async function ensureFeedbackAuthorRoles(db) {
+  if (db.driver === 'mysql') {
+    // MySQL can swap a named CHECK constraint without rebuilding the table.
+    try {
+      await db.exec('ALTER TABLE feedback_forms DROP CHECK chk_feedback_forms_creator');
+      await db.exec(
+        "ALTER TABLE feedback_forms ADD CONSTRAINT chk_feedback_forms_creator "
+        + "CHECK (created_by_role IN ('ORGANIZATION','INSTITUTION','TRAINER'))"
+      );
+      console.log('[db] migrated: feedback_forms creator check widened');
+    } catch (err) {
+      const msg = String(err.message || '');
+      if (!/check constraint|no such constraint|doesn't exist|Duplicate/i.test(msg)) {
+        console.warn(`[db] feedback author migration skipped: ${msg}`);
+      }
+    }
+    return;
+  }
+
+  const row = await db.get(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'feedback_forms'"
+  );
+  if (!row || !row.sql) return;              // fresh DB — DDL already allows TRAINER
+  if (/TRAINER/.test(row.sql)) return;       // already migrated
+
+  await db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    await db.exec(`CREATE TABLE feedback_forms__widen (
+      form_key        INTEGER PRIMARY KEY AUTOINCREMENT,
+      id              TEXT NOT NULL UNIQUE,
+      title           TEXT NOT NULL,
+      description     TEXT,
+      audience        TEXT NOT NULL DEFAULT 'STUDENT' CHECK (audience IN ('STUDENT','INSTITUTION')),
+      created_by_role TEXT NOT NULL CHECK (created_by_role IN ('ORGANIZATION','INSTITUTION','TRAINER')),
+      created_by      TEXT REFERENCES users(id),
+      customer_id     TEXT REFERENCES customers(id),
+      status          TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','CLOSED')),
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT
+    )`);
+    await db.exec(`INSERT INTO feedback_forms__widen
+      (form_key, id, title, description, audience, created_by_role, created_by,
+       customer_id, status, created_at, updated_at)
+      SELECT form_key, id, title, description, audience, created_by_role, created_by,
+             customer_id, status, created_at, updated_at
+        FROM feedback_forms`);
+    await db.exec('DROP TABLE feedback_forms');
+    await db.exec('ALTER TABLE feedback_forms__widen RENAME TO feedback_forms');
+    console.log('[db] migrated: feedback_forms rebuilt to allow TRAINER authors');
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON');
   }
 }
 
@@ -88,6 +171,7 @@ async function applySchema(db) {
     applySqliteSchema(db);
   }
   await ensureColumns(db);
+  await ensureFeedbackAuthorRoles(db);
 }
 
 async function seedDemoData(db) {
@@ -220,10 +304,11 @@ async function seedDemoData(db) {
   }
 
   // Assessments + scores (drive performance, weak areas, top students)
-  await db.run('INSERT INTO assessments (id,batch_id,title,max_score,assessed_on) VALUES (?,?,?,?,?)',
-    ['ASM-001', 'AIML-2026-01', 'Python functions', 100, '2026-09-27']);
-  await db.run('INSERT INTO assessments (id,batch_id,title,max_score,assessed_on) VALUES (?,?,?,?,?)',
-    ['ASM-002', 'AIML-2026-01', 'ML basics', 100, '2026-09-29']);
+  // PUBLISHED so institution/student roles see them (publication gate filters DRAFT).
+  await db.run('INSERT INTO assessments (id,batch_id,title,max_score,assessed_on,status) VALUES (?,?,?,?,?,?)',
+    ['ASM-001', 'AIML-2026-01', 'Python functions', 100, '2026-09-27', 'PUBLISHED']);
+  await db.run('INSERT INTO assessments (id,batch_id,title,max_score,assessed_on,status) VALUES (?,?,?,?,?,?)',
+    ['ASM-002', 'AIML-2026-01', 'ML basics', 100, '2026-09-29', 'PUBLISHED']);
   const scoreSeed = {
     'STU-001': [92, 88], 'STU-002': [78, 85], 'STU-003': [45, 52],
     'STU-004': [88, 91], 'STU-005': [70, 66], 'STU-006': [95, 93],

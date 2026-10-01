@@ -15,11 +15,13 @@ const { nid } = require('../utils/ids');
 const { canSeeCustomer } = require('./scope.service');
 
 // ---------- Quotations ----------
-async function listQuotations(scope) {
+async function listQuotations(scope, { archived = false } = {}) {
+  const arch = archived ? 'q.archived_at IS NOT NULL' : 'q.archived_at IS NULL';
   if (scope.role === 'organization') {
     return db.query(
       `SELECT q.*, c.name AS customer_name FROM quotations q
         LEFT JOIN customers c ON c.id = q.customer_id
+       WHERE ${arch}
        ORDER BY q.created_at DESC, q.quotation_key DESC`
     );
   }
@@ -27,7 +29,7 @@ async function listQuotations(scope) {
     return db.query(
       `SELECT q.*, c.name AS customer_name FROM quotations q
         LEFT JOIN customers c ON c.id = q.customer_id
-       WHERE q.customer_id = ?
+       WHERE q.customer_id = ? AND ${arch}
        ORDER BY q.created_at DESC, q.quotation_key DESC`,
       [scope.customer_id]
     );
@@ -58,11 +60,13 @@ async function createQuotation(body = {}) {
 }
 
 // ---------- Invoices ----------
-async function listInvoices(scope) {
+async function listInvoices(scope, { archived = false } = {}) {
+  const arch = archived ? 'i.archived_at IS NOT NULL' : 'i.archived_at IS NULL';
   if (scope.role === 'organization') {
     return db.query(
       `SELECT i.*, c.name AS customer_name FROM invoices i
         LEFT JOIN customers c ON c.id = i.customer_id
+       WHERE ${arch}
        ORDER BY i.created_at DESC, i.invoice_key DESC`
     );
   }
@@ -70,7 +74,7 @@ async function listInvoices(scope) {
     return db.query(
       `SELECT i.*, c.name AS customer_name FROM invoices i
         LEFT JOIN customers c ON c.id = i.customer_id
-       WHERE i.customer_id = ?
+       WHERE i.customer_id = ? AND ${arch}
        ORDER BY i.created_at DESC, i.invoice_key DESC`,
       [scope.customer_id]
     );
@@ -173,8 +177,22 @@ async function createPayment(scope, body = {}) {
 }
 
 // ---------- Expenses ----------
-async function listExpenses() {
-  return db.query('SELECT * FROM expenses ORDER BY date DESC, expense_key DESC LIMIT 200');
+/**
+ * Expenses carry their linkage inline (audit E5 / D21): the customer and batch
+ * a cost belongs to, plus the trainer it pays. Joining here means every list
+ * read already shows the attribution without a second round-trip.
+ */
+async function listExpenses({ archived = false } = {}) {
+  const arch = archived ? 'e.archived_at IS NOT NULL' : 'e.archived_at IS NULL';
+  return db.query(
+    `SELECT e.*, c.name AS customer_name, b.id AS batch_label, t.name AS trainer_name
+       FROM expenses e
+       LEFT JOIN customers c ON c.id = e.customer_id
+       LEFT JOIN batches  b ON b.id = e.batch_id
+       LEFT JOIN trainers t ON t.id = e.trainer_id
+      WHERE ${arch}
+      ORDER BY e.date DESC, e.expense_key DESC LIMIT 200`
+  );
 }
 
 /** Trainer may file OWN claim (starts PENDING); org records anything. */
@@ -189,11 +207,27 @@ async function createExpense(scope, body = {}) {
   } else if (scope.role !== 'organization') {
     throw forbidden('Organization access only');
   }
+
+  // Optional linkage — validated so a typo can never create an orphan link.
+  const customerId = str(body.customer_id) || null;
+  const batchId = str(body.batch_id) || null;
+  if (customerId && !(await db.get('SELECT id FROM customers WHERE id = ?', [customerId]))) {
+    throw badRequest('Unknown customer_id');
+  }
+  if (batchId && !(await db.get('SELECT id FROM batches WHERE id = ?', [batchId]))) {
+    throw badRequest('Unknown batch_id');
+  }
+  if (trainerId && !(await db.get('SELECT id FROM trainers WHERE id = ?', [trainerId]))) {
+    throw badRequest('Unknown trainer_id');
+  }
+
   const id = await nid(db, 'EXP', 'expenses');
   await db.run(
-    'INSERT INTO expenses (id,date,category,vendor,description,amount,trainer_id,status) VALUES (?,?,?,?,?,?,?,?)',
+    `INSERT INTO expenses (id,date,category,vendor,description,amount,trainer_id,customer_id,batch_id,status)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
     [id, str(body.date) || new Date().toISOString().slice(0, 10), str(body.category) || 'Other',
-      str(body.vendor) || '', str(body.description) || '', round2(Number(body.amount)), trainerId, status]
+      str(body.vendor) || '', str(body.description) || '', round2(Number(body.amount)), trainerId,
+      customerId, batchId, status]
   );
   return db.get('SELECT * FROM expenses WHERE id = ?', [id]);
 }
@@ -248,6 +282,26 @@ async function updateExpense(scope, id, body = {}) {
   if (!exp) throw notFound('Expense not found');
   const status = body.status || (body.action === 'approve' ? 'APPROVED' : body.action === 'pay' ? 'PAID' : exp.status);
   await db.run('UPDATE expenses SET status = ? WHERE id = ?', [status, id]);
+
+  // Linkage + details are editable, so a mis-attributed cost can be corrected
+  // without deleting and re-entering it (audit E5 / D21).
+  const linkable = [['customer_id', 'customers'], ['batch_id', 'batches'], ['trainer_id', 'trainers']];
+  for (const [col, table] of linkable) {
+    if (body[col] === undefined) continue;
+    const val = str(body[col]) || null;
+    if (val && !(await db.get(`SELECT id FROM ${table} WHERE id = ?`, [val]))) {
+      throw badRequest(`Unknown ${col}`);
+    }
+    await db.run(`UPDATE expenses SET ${col} = ? WHERE id = ?`, [val, id]);
+  }
+  for (const col of ['category', 'vendor', 'description', 'date']) {
+    if (body[col] !== undefined) {
+      await db.run(`UPDATE expenses SET ${col} = ? WHERE id = ?`, [str(body[col]) || null, id]);
+    }
+  }
+  if (body.amount !== undefined) {
+    await db.run('UPDATE expenses SET amount = ? WHERE id = ?', [round2(Number(body.amount)), id]);
+  }
   return db.get('SELECT * FROM expenses WHERE id = ?', [id]);
 }
 

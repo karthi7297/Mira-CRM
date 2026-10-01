@@ -31,4 +31,8 @@ export const NAV = [
   { to: '/certificates', label: 'Certificates', roles: ['organization', 'institution', 'trainer'] },
   { to: '/expenses', label: 'Expenses', roles: ['organization'] },
   { to: '/reports', label: 'Reports', roles: ['organization', 'institution'] },
+  { to: '/feedback', label: 'Feedback', roles: ['organization', 'institution', 'trainer', 'student'] },
+  { to: '/support', label: 'Support', roles: ['organization', 'institution', 'trainer', 'student'] },
+  { to: '/announcements', label: 'Announcements', roles: ['organization', 'institution', 'trainer', 'student'] },
+  { to: '/users', label: 'Users & Access', roles: ['organization'] },
 ];

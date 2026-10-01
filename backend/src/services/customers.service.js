@@ -11,7 +11,7 @@ const { outstandingOf } = require('../utils/money');
 const { collectionRisk, maxOverdueDays } = require('../utils/risk');
 const { canSeeCustomer, batchWithMeta } = require('./scope.service');
 
-async function listCustomers(scope, { search = '' } = {}) {
+async function listCustomers(scope, { search = '', archived = false } = {}) {
   let rows;
   if (scope.role === 'organization') {
     rows = await db.query('SELECT * FROM customers ORDER BY id');
@@ -34,6 +34,8 @@ async function listCustomers(scope, { search = '' } = {}) {
   } else {
     rows = [];
   }
+  // Archive view (audit D8): the live list and the archive never mix.
+  rows = rows.filter((c) => (archived ? !!c.archived_at : !c.archived_at));
   if (search) {
     const q = search.toLowerCase();
     rows = rows.filter(

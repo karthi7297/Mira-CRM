@@ -1,0 +1,361 @@
+{
+  "routes": [
+    {
+      "role": "organization",
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/leads",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/customers",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/programs",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/trainers",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/batches",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/students",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/assessments",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/attendance",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/quotations",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/invoices",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/payments",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/expenses",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/reports",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/collections",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/certificates",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/support",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/announcements",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/users",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "organization",
+      "route": "/profile",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "org@rampex.demo"
+    },
+    {
+      "role": "institution",
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/college",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/programs",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": true,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/batches",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/students",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/assessments",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/attendance-details",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/quotations",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/invoices",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/payments",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/reports",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/support",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/announcements",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    },
+    {
+      "role": "institution",
+      "route": "/profile",
+      "status": 200,
+      "errors": [],
+      "overflow": 0,
+      "accessDenied": false,
+      "user": "abc@college.edu"
+    }
+  ],
+  "modals": [
+    {
+      "test": "escape closes modal",
+      "pass": true
+    },
+    {
+      "test": "backdrop click closes modal",
+      "pass": true
+    },
+    {
+      "test": "role=dialog present",
+      "pass": true,
+      "got": "dialog"
+    }
+  ],
+  "toolkit": [
+    {
+      "test": "invoices has list toolbar",
+      "pass": true
+    },
+    {
+      "test": "invoices has sortable headers",
+      "pass": true,
+      "count": 7
+    },
+    {
+      "test": "sort header click no crash",
+      "pass": true
+    },
+    {
+      "test": "invoices has saved views bar",
+      "pass": true
+    },
+    {
+      "test": "students bulk bar appears",
+      "pass": true
+    },
+    {
+      "test": "no page errors during toolkit test",
+      "pass": true,
+      "errors": []
+    }
+  ],
+  "summary": {
+    "routesTested": 34,
+    "routesWithProblems": 1,
+    "modalTests": 3,
+    "modalPass": 3,
+    "toolkitTests": 6,
+    "toolkitPass": 6
+  }
+}

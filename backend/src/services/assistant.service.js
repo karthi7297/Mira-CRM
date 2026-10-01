@@ -193,20 +193,42 @@ function normaliseHistory(raw) {
  * widget down.
  */
 async function chat(scope, body = {}) {
+  const history = normaliseHistory(body.messages);
+  const snapshot = await buildSnapshot(scope);
+  const messages = [{ role: 'system', content: systemPrompt(scope, snapshot) }, ...history];
+  return runChain(messages, scope.role);
+}
+
+/**
+ * Single-shot task completion (non-chat): weak-area narratives, summaries.
+ * Same model chain + error mapping as chat, but the caller supplies the full
+ * system/user pair. Throws an HttpError the API can return as-is.
+ */
+async function generate(system, userText) {
+  if (!config.assistant.apiKey) {
+    throw new HttpError(503, 'Mira AI is not switched on yet — no OpenRouter key is configured on the server.');
+  }
+  return runChain(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: String(userText).slice(0, 6000) },
+    ],
+    'task'
+  );
+}
+
+/** Shared primary→fallback chain. Returns { reply, model, role }. */
+async function runChain(messages, role) {
   const { apiKey, model, fallbackModel } = config.assistant;
   if (!apiKey) {
     throw new HttpError(503, 'Mira AI is not switched on yet — no OpenRouter key is configured on the server.');
   }
-  const history = normaliseHistory(body.messages);
-  const snapshot = await buildSnapshot(scope);
-  const messages = [{ role: 'system', content: systemPrompt(scope, snapshot) }, ...history];
-
   const chain = [...new Set([model, fallbackModel].filter(Boolean))];
   let lastErr = null;
   for (const candidate of chain) {
     try {
       const out = await callModel(candidate, messages);
-      return { reply: out.text, model: out.model, role: scope.role };
+      return { reply: out.text, model: out.model, role };
     } catch (err) {
       lastErr = err;
       // A bad key or a timeout will fail the same way on the next model too,
@@ -219,4 +241,4 @@ async function chat(scope, body = {}) {
   throw explain(lastErr);
 }
 
-module.exports = { chat, ROLE_BRIEF };
+module.exports = { chat, generate, ROLE_BRIEF };

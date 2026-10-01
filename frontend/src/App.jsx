@@ -13,6 +13,10 @@ import ColdMail from './pages/ColdMail';
 import TrainerDetail from './pages/TrainerDetail';
 import LeaveApproval from './pages/LeaveApproval';
 import AttendanceDetails from './pages/AttendanceDetails';
+import { Support, Announcements } from './pages/Support';
+import Feedback from './pages/Feedback';
+import Users from './pages/Users';
+import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 
 function College() {
@@ -65,6 +69,11 @@ export default function App() {
           <Route path="/certificates" element={<Guard path="/certificates"><Certificates /></Guard>} />
           <Route path="/expenses" element={<Guard path="/expenses"><Expenses /></Guard>} />
           <Route path="/reports" element={<Guard path="/reports"><Reports /></Guard>} />
+          <Route path="/feedback" element={<Guard path="/feedback"><Feedback /></Guard>} />
+          <Route path="/support" element={<Guard path="/support"><Support /></Guard>} />
+          <Route path="/announcements" element={<Guard path="/announcements"><Announcements /></Guard>} />
+          <Route path="/users" element={<Guard path="/users"><Users /></Guard>} />
+          <Route path="/profile" element={<Guard path="/profile"><Profile /></Guard>} />
           {/* Custom 404: inside the shell when signed in, standalone otherwise */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -15,9 +15,14 @@ const financeService = require('./services/finance.service');
 const learningService = require('./services/learning.service');
 const showcaseService = require('./services/showcase.service');
 const assistantService = require('./services/assistant.service');
+const insightsService = require('./services/insights.service');
 const campaignService = require('./services/campaign.service');
 const automationService = require('./services/automation.service');
 const emailService = require('./services/email.service');
+const supportService = require('./services/support.service');
+const notificationsService = require('./services/notifications.service');
+const lifecycleService = require('./services/lifecycle.service');
+const feedbackService = require('./services/feedback.service');
 
 /**
  * App factory — wires every route the frontend calls (frontend/src/api.js):
@@ -99,16 +104,34 @@ function createApp() {
     asyncHandler(async (req, res) => ok(res, await authService.login(req.body || {}))));
   app.get('/api/users', requireOrg, asyncHandler(async (req, res) => ok(res, await authService.listUsers())));
 
+  // ---------- Self-service profile (any signed-in user) ----------
+  app.get('/api/profile', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await authService.getProfile(req.scope.user_id))));
+  app.patch('/api/profile', requireAuth, validate({ body: { name: '?string', email: '?email', phone: '?phone', password: '?string' } }),
+    asyncHandler(async (req, res) => ok(res, await authService.updateProfile(req.scope.user_id, req.body || {}))));
+
   // ---------- Dashboard (scope-aware) ----------
   app.get('/api/dashboard', requireAuth, asyncHandler(async (req, res) => ok(res, await dashboardService.dashboard(req.scope))));
 
   // ---------- Leads (Rampex org operates the pipeline) ----------
   app.get('/api/leads', requireOrg, asyncHandler(async (req, res) =>
-    ok(res, await leadsService.listLeads({ search: req.query.search || '', status: req.query.status || '' }))));
+    ok(res, await leadsService.listLeads({
+      search: req.query.search || '',
+      status: req.query.status || '',
+      archived: req.query.archived === '1',
+    }))));
   app.get('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.getLead(req.params.id))));
-  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
-    ok(res, await leadsService.createLead(req.body || {}))));
+  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) => {
+    const lead = await leadsService.createLead(req.body || {});
+    await notificationsService.notify({
+      role: 'organization', kind: 'SUCCESS',
+      title: `New lead — ${lead.organization}`,
+      body: `${lead.contact_person} · ${lead.program || 'General'} · ${lead.id}`,
+      link: `/leads/${lead.id}`,
+    });
+    return ok(res, lead);
+  }));
   app.patch('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.updateLead(req.params.id, req.body || {}))));
   app.post('/api/leads/:id/followups', requireOrg, validate({ body: { method: 'string' } }), asyncHandler(async (req, res) =>
@@ -118,13 +141,16 @@ function createApp() {
 
   // ---------- Customers + 360 ----------
   app.get('/api/customers', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await customersService.listCustomers(req.scope, { search: req.query.search || '' }))));
+    ok(res, await customersService.listCustomers(req.scope, {
+      search: req.query.search || '',
+      archived: req.query.archived === '1',
+    }))));
   app.get('/api/customers/:id', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await customersService.getCustomer360(req.scope, req.params.id))));
 
   // ---------- Training ----------
   app.get('/api/programs', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listPrograms())));
+    ok(res, await trainingService.listPrograms({ archived: req.query.archived === '1' }))));
   app.post('/api/programs', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createProgram(req.body || {}))));
   app.patch('/api/programs/:id', requireOrg, asyncHandler(async (req, res) =>
@@ -132,7 +158,7 @@ function createApp() {
   app.delete('/api/programs/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.deleteProgram(req.params.id))));
   app.get('/api/trainers', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listTrainers())));
+    ok(res, await trainingService.listTrainers({ archived: req.query.archived === '1' }))));
   // Trainer 360 for Rampex: profile + batches + students + payouts + leave.
   app.get('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.getTrainerDetail(req.params.id))));
@@ -143,7 +169,7 @@ function createApp() {
   app.delete('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.deleteTrainer(req.params.id))));
   app.get('/api/batches', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listBatches(req.scope))));
+    ok(res, await trainingService.listBatches(req.scope, { archived: req.query.archived === '1' }))));
   app.get('/api/batches/:id', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.getBatch(req.scope, req.params.id))));
   app.post('/api/batches', requireOrg, validate({ body: { program_id: 'string', customer_id: 'string' } }), asyncHandler(async (req, res) =>
@@ -159,8 +185,12 @@ function createApp() {
   // manages platform-wide. Reads stay scoped; writes are trainer/institution/
   // organization per the service guards.
   app.get('/api/students', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listStudents(req.scope, { batch_id: req.query.batch_id || '', search: req.query.search || '' }))));
-  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
+    ok(res, await trainingService.listStudents(req.scope, {
+      batch_id: req.query.batch_id || '',
+      search: req.query.search || '',
+      archived: req.query.archived === '1',
+    }))));
+  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string', email: '?email', phone: '?phone', password: '?string' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createStudent(req.scope, req.body || {}))));
   app.post('/api/students/bulk', requireRole('trainer', 'institution', 'organization'), validate({ body: { students: 'array' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.bulkCreateStudents(req.scope, req.body || {}))));
@@ -214,8 +244,17 @@ function createApp() {
     ok(res, await learningService.deleteScore(req.scope, req.params.assessmentId, req.params.studentId))));
   app.get('/api/assessments/:id/report', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.assessmentReport(req.scope, req.params.id))));
+  app.get('/api/reports/batch/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.batchReport(req.scope, req.params.id))));
+  app.get('/api/reports/overall', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.overallReport(req.scope))));
   app.get('/api/students/:id/report', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.studentReport(req.scope, req.params.id))));
+  // AI weak-area insights from the student's assessment performance.
+  // POST (not GET): each call can hit the upstream model, so it shares the AI
+  // rate limiter with the assistant chat.
+  app.post('/api/students/:id/insights', requireAuth, aiLimiter, asyncHandler(async (req, res) =>
+    ok(res, await insightsService.studentInsights(req.scope, req.params.id))));
   app.get('/api/reports/top-students', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.topStudentsReport(req.scope, { customer_id: req.query.customer_id || '' }))));
 
@@ -225,25 +264,44 @@ function createApp() {
 
   // ---------- Finance ----------
   app.get('/api/quotations', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await financeService.listQuotations(req.scope))));
+    ok(res, await financeService.listQuotations(req.scope, { archived: req.query.archived === '1' }))));
   app.post('/api/quotations', requireOrg, validate({ body: { customer_id: 'string', program: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await financeService.createQuotation(req.body || {}))));
   app.patch('/api/quotations/:id', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await financeService.updateQuotation(req.scope, req.params.id, req.body || {}))));
   app.get('/api/invoices', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await financeService.listInvoices(req.scope))));
+    ok(res, await financeService.listInvoices(req.scope, { archived: req.query.archived === '1' }))));
   app.get('/api/invoices/:id', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await financeService.getInvoice(req.scope, req.params.id))));
   app.post('/api/invoices', requireOrg, validate({ body: { customer_id: 'string', program: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await financeService.createInvoice(req.body || {}))));
   app.get('/api/payments', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await financeService.listPayments(req.scope))));
-  app.post('/api/payments', requireAuth, validate({ body: { invoice_id: 'string', amount: 'amount' } }), asyncHandler(async (req, res) =>
-    ok(res, await financeService.createPayment(req.scope, req.body || {}))));
+  app.post('/api/payments', requireAuth, validate({ body: { invoice_id: 'string', amount: 'amount' } }), asyncHandler(async (req, res) => {
+    const payment = await financeService.createPayment(req.scope, req.body || {});
+    await notificationsService.notify({
+      role: 'organization', kind: 'SUCCESS',
+      title: `Payment received — ${payment.id}`,
+      body: `Invoice ${req.body.invoice_id} · outstanding now ₹${payment.outstanding}`,
+      link: `/invoices/${req.body.invoice_id}`,
+    });
+    return ok(res, payment);
+  }));
   app.get('/api/expenses', requireOrg, asyncHandler(async (req, res) =>
-    ok(res, await financeService.listExpenses())));
-  app.post('/api/expenses', requireAuth, validate({ body: { amount: 'amount' } }), asyncHandler(async (req, res) =>
-    ok(res, await financeService.createExpense(req.scope, req.body || {}))));
+    ok(res, await financeService.listExpenses({ archived: req.query.archived === '1' }))));
+  app.post('/api/expenses', requireAuth, validate({ body: { amount: 'amount' } }), asyncHandler(async (req, res) => {
+    const expense = await financeService.createExpense(req.scope, req.body || {});
+    // A trainer claim lands as PENDING and needs org attention — say so.
+    if (expense.status === 'PENDING') {
+      await notificationsService.notify({
+        role: 'organization', kind: 'WARNING',
+        title: `Expense claim to review — ${expense.id}`,
+        body: `${expense.category} · ${expense.vendor || 'no vendor'} · ₹${expense.amount}`,
+        link: '/expenses',
+      });
+    }
+    return ok(res, expense);
+  }));
   app.patch('/api/expenses/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await financeService.updateExpense(req.scope, req.params.id, req.body || {}))));
 
@@ -350,6 +408,162 @@ function createApp() {
     ok(res, await campaignService.suppress(req.body.email, req.body.reason || 'MANUAL', req.body.detail || null))));
   app.delete('/api/outreach/suppressions/:email', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await campaignService.unsuppress(req.params.email))));
+
+  // ---- Support tickets / institution requests ----
+  app.get('/api/tickets', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await supportService.listTickets(req.scope))));
+  app.post('/api/tickets', requireAuth, validate({ body: { subject: 'string' } }), asyncHandler(async (req, res) => {
+    const ticket = await supportService.createTicket(req.scope, req.body || {});
+    // Tell the org there is something to triage (their own tickets don't need it).
+    if (req.scope.role !== 'organization') {
+      await notificationsService.notify({
+        role: 'organization', kind: 'INFO',
+        title: `New ${String(ticket.kind || 'SUPPORT').toLowerCase()} ticket — ${ticket.subject}`,
+        body: `Raised by ${req.scope.role} · ${ticket.id}`,
+        link: '/support',
+      });
+    }
+    return ok(res, ticket, 201);
+  }));
+  app.patch('/api/tickets/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await supportService.updateTicket(req.scope, req.params.id, req.body || {}))));
+
+  // ---- Announcements ----
+  app.get('/api/announcements', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await supportService.listAnnouncements(req.scope))));
+  app.post('/api/announcements', requireRole('organization', 'trainer'), validate({ body: { title: 'string' } }), asyncHandler(async (req, res) => {
+    const ann = await supportService.createAnnouncement(req.scope, req.body || {});
+    // Fan the announcement out to the roles its audience targets (audit B4/F7).
+    const targets = ann.audience === 'ALL' ? ['institution', 'student']
+      : ann.audience === 'CUSTOMER' ? ['institution'] : ['student'];
+    for (const role of targets) {
+      await notificationsService.notify({
+        role, kind: 'INFO',
+        title: `Announcement — ${ann.title}`,
+        body: ann.body ? String(ann.body).slice(0, 140) : null,
+        link: '/announcements',
+      });
+    }
+    return ok(res, ann, 201);
+  }));
+
+  // ---- Feedback (forms → responses → sentiment) ----
+  // Two audiences: STUDENT forms survey a college's learners, INSTITUTION
+  // forms review the platform. Visibility lives in the service, never the
+  // client: Rampex sees everything, an institution sees only the forms it
+  // created and their responses, a trainer sees only its own forms (answered by
+  // the students it teaches), a student sees forms addressed to its college
+  // plus its own submissions. Every text answer is scored on write.
+  app.get('/api/feedback/overview', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.overview(req.scope))));
+  app.get('/api/feedback/forms', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.listForms(req.scope))));
+  app.get('/api/feedback/mine', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.myResponses(req.scope))));
+  app.post('/api/feedback/forms', requireRole('organization', 'institution', 'trainer'),
+    validate({ body: { title: 'string', questions: 'array' } }), asyncHandler(async (req, res) => {
+      const form = await feedbackService.createForm(req.scope, req.body || {});
+      // A form opened by a college or a trainer should not sit unseen in their
+      // workspace — Rampex gets told.
+      if (req.scope.role === 'institution' || req.scope.role === 'trainer') {
+        await notificationsService.notify({
+          role: 'organization', kind: 'INFO',
+          title: `New feedback form — ${form.title}`,
+          body: `${form.customer_name || (req.scope.role === 'trainer' ? 'A trainer' : 'An institution')} · ${form.id} · ${form.audience}`,
+          link: '/feedback',
+        });
+      }
+      return ok(res, form, 201);
+    }));
+  app.get('/api/feedback/forms/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.getForm(req.scope, req.params.id))));
+  app.patch('/api/feedback/forms/:id', requireRole('organization', 'institution', 'trainer'), asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.setFormStatus(req.scope, req.params.id, req.body?.status))));
+  app.delete('/api/feedback/forms/:id', requireRole('organization', 'institution', 'trainer'), asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.deleteForm(req.scope, req.params.id))));
+  app.get('/api/feedback/forms/:id/responses', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await feedbackService.listResponses(req.scope, req.params.id))));
+  app.post('/api/feedback/forms/:id/responses', requireAuth,
+    validate({ body: { answers: 'array' } }), asyncHandler(async (req, res) => {
+      const response = await feedbackService.submitResponse(req.scope, req.params.id, req.body || {});
+      const meta = await feedbackService.getFormMeta(req.params.id);
+      if (meta) {
+        // The form's owner hears that feedback landed.
+        if (meta.created_by && meta.created_by !== req.scope.user_id) {
+          await notificationsService.notify({
+            userId: meta.created_by, kind: 'SUCCESS',
+            title: `New feedback — ${meta.title}`,
+            body: `${response.submitted_role} · ${response.sentiment}`,
+            link: '/feedback',
+          });
+        }
+        // Institution-level feedback is Rampex's signal about the platform
+        // itself, so it is flagged separately from student feedback.
+        if (req.scope.role === 'institution') {
+          await notificationsService.notify({
+            role: 'organization', kind: 'INFO',
+            title: `Institution feedback — ${meta.title}`,
+            body: `${response.sentiment} · ${response.id}`,
+            link: '/feedback',
+          });
+        }
+      }
+      return ok(res, response, 201);
+    }));
+
+  // ---- Customer contacts ----
+  app.get('/api/customers/:id/contacts', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await supportService.listContacts(req.scope, req.params.id))));
+  app.post('/api/customers/:id/contacts', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
+    ok(res, await supportService.createContact(req.scope, req.params.id, req.body || {}), 201)));
+  app.delete('/api/contacts/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await supportService.deleteContact(req.scope, req.params.id))));
+
+  // ---- User & access management (organization only) ----
+  app.post('/api/users', requireOrg, validate({ body: { name: 'string', email: 'email', role: 'string', password: '?string' } }), asyncHandler(async (req, res) =>
+    ok(res, await authService.createUser(req.body || {}), 201)));
+  app.patch('/api/users/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await authService.updateUser(req.params.id, req.body || {}))));
+
+  // ---------- Notifications (audit B4 / F7) ----------
+  // The topbar bell polls the unread count and lists the inbox. Read state is
+  // per user, so a role-wide broadcast keeps an independent unread count for
+  // everyone who received it.
+  app.get('/api/notifications', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await notificationsService.list(req.scope, { limit: req.query.limit || 50 }))));
+  app.get('/api/notifications/unread-count', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, { count: await notificationsService.unreadCount(req.scope) })));
+  app.post('/api/notifications/read-all', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await notificationsService.markAllRead(req.scope))));
+  app.post('/api/notifications/:id/read', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await notificationsService.markRead(req.scope, req.params.id))));
+
+  // ---------- Record lifecycle (audit D8): archive / restore / merge ----------
+  // Registered as a block so every archivable entity gets the same three
+  // endpoints with the same shape. `merge` is only wired where a rule exists
+  // (leads, customers, students) — the service rejects it otherwise.
+  const LIFECYCLE = [
+    { base: '/api/leads', entity: 'leads', mergeable: true },
+    { base: '/api/customers', entity: 'customers', mergeable: true },
+    { base: '/api/students', entity: 'students', mergeable: true },
+    { base: '/api/batches', entity: 'batches' },
+    { base: '/api/quotations', entity: 'quotations' },
+    { base: '/api/invoices', entity: 'invoices' },
+    { base: '/api/expenses', entity: 'expenses' },
+    { base: '/api/trainers', entity: 'trainers' },
+    { base: '/api/programs', entity: 'programs' },
+  ];
+  for (const { base, entity, mergeable } of LIFECYCLE) {
+    app.post(`${base}/:id/archive`, requireAuth, asyncHandler(async (req, res) =>
+      ok(res, await lifecycleService.archive(req.scope, entity, req.params.id))));
+    app.post(`${base}/:id/restore`, requireAuth, asyncHandler(async (req, res) =>
+      ok(res, await lifecycleService.restore(req.scope, entity, req.params.id))));
+    if (mergeable) {
+      app.post(`${base}/merge`, requireAuth,
+        validate({ body: { primary_id: 'string', duplicate_id: 'string' } }), asyncHandler(async (req, res) =>
+          ok(res, await lifecycleService.merge(req.scope, entity, req.body.primary_id, req.body.duplicate_id))));
+    }
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

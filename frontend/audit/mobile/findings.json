@@ -1,0 +1,3344 @@
+[
+  {
+    "device": "galaxy-fold-320",
+    "page": "dashboard",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "leads",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "expenses",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "students",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "batches",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "invoices",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "support",
+    "vw": 320,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -281,
+        "right": -6,
+        "w": 275,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -267,
+        "right": -20,
+        "w": 247,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -259,
+        "right": -228,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -252,
+        "right": -235,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -249,
+        "right": -246,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -240,
+        "right": -237,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -245,
+        "right": -242,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -247,
+        "right": -240,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -218,
+        "right": -91,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -218,
+        "right": -182,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 28,
+      "h": 18
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "galaxy-fold-320",
+    "page": "login",
+    "vw": 320,
+    "docOverflow": 0
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "dashboard",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "leads",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "expenses",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "students",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "batches",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "invoices",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "support",
+    "vw": 375,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "iphone-se-375",
+    "page": "login",
+    "vw": 375,
+    "docOverflow": 0
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "dashboard",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "leads",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "expenses",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "students",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "batches",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "invoices",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "support",
+    "vw": 390,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "iphone-12-390",
+    "page": "login",
+    "vw": 390,
+    "docOverflow": 0
+  },
+  {
+    "device": "pixel-412",
+    "page": "dashboard",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "pixel-412",
+    "page": "leads",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "pixel-412",
+    "page": "expenses",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "pixel-412",
+    "page": "students",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "pixel-412",
+    "page": "batches",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "pixel-412",
+    "page": "invoices",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "pixel-412",
+    "page": "support",
+    "vw": 412,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 81,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "pixel-412",
+    "page": "login",
+    "vw": 412,
+    "docOverflow": 0
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "dashboard",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "leads",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "expenses",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 330,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "students",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "batches",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 425,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "invoices",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 25,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "support",
+    "vw": 768,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "aside.side",
+        "left": -312,
+        "right": -6,
+        "w": 306,
+        "pos": "fixed"
+      },
+      {
+        "sel": "div.brand",
+        "left": -298,
+        "right": -20,
+        "w": 278,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-mark",
+        "left": -290,
+        "right": -259,
+        "w": 31,
+        "pos": "static"
+      },
+      {
+        "sel": "svg",
+        "left": -283,
+        "right": -266,
+        "w": 17,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -281,
+        "right": -278,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -272,
+        "right": -269,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "circle",
+        "left": -276,
+        "right": -273,
+        "w": 3,
+        "pos": "static"
+      },
+      {
+        "sel": "path",
+        "left": -278,
+        "right": -271,
+        "w": 7,
+        "pos": "static"
+      },
+      {
+        "sel": "span",
+        "left": -249,
+        "right": -123,
+        "w": 127,
+        "pos": "static"
+      },
+      {
+        "sel": "span.brand-name",
+        "left": -249,
+        "right": -214,
+        "w": 36,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 91,
+      "w": 32,
+      "h": 20
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "ipad-mini-768",
+    "page": "login",
+    "vw": 768,
+    "docOverflow": 0
+  },
+  {
+    "device": "desktop-1280",
+    "page": "dashboard",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "desktop-1280",
+    "page": "leads",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [
+      {
+        "sel": "table",
+        "left": 284,
+        "right": 1297,
+        "w": 1013,
+        "pos": "static"
+      },
+      {
+        "sel": "thead",
+        "left": 285,
+        "right": 1296,
+        "w": 1011,
+        "pos": "static"
+      },
+      {
+        "sel": "tr",
+        "left": 285,
+        "right": 1296,
+        "w": 1011,
+        "pos": "static"
+      },
+      {
+        "sel": "th",
+        "left": 1154,
+        "right": 1296,
+        "w": 141,
+        "pos": "static"
+      },
+      {
+        "sel": "tbody",
+        "left": 285,
+        "right": 1296,
+        "w": 1011,
+        "pos": "static"
+      },
+      {
+        "sel": "tr",
+        "left": 285,
+        "right": 1296,
+        "w": 1011,
+        "pos": "static"
+      },
+      {
+        "sel": "td",
+        "left": 1154,
+        "right": 1296,
+        "w": 141,
+        "pos": "static"
+      },
+      {
+        "sel": "div",
+        "left": 1168,
+        "right": 1282,
+        "w": 113,
+        "pos": "static"
+      },
+      {
+        "sel": "button.btn.sm.ghost",
+        "left": 1222,
+        "right": 1282,
+        "w": 59,
+        "pos": "static"
+      },
+      {
+        "sel": "tr",
+        "left": 285,
+        "right": 1296,
+        "w": 1011,
+        "pos": "static"
+      }
+    ],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 293,
+      "w": 55,
+      "h": 17
+    },
+    "drLabelText": "Created"
+  },
+  {
+    "device": "desktop-1280",
+    "page": "expenses",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 631,
+      "w": 31,
+      "h": 17
+    },
+    "drLabelText": "Date"
+  },
+  {
+    "device": "desktop-1280",
+    "page": "students",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 821,
+      "w": 42,
+      "h": 17
+    },
+    "drLabelText": "Joined"
+  },
+  {
+    "device": "desktop-1280",
+    "page": "batches",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 672,
+      "w": 44,
+      "h": 17
+    },
+    "drLabelText": "Starts"
+  },
+  {
+    "device": "desktop-1280",
+    "page": "invoices",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": {
+      "x": 947,
+      "w": 24,
+      "h": 17
+    },
+    "drLabelText": "Due"
+  },
+  {
+    "device": "desktop-1280",
+    "page": "support",
+    "vw": 1280,
+    "docOverflow": 0,
+    "offenders": [],
+    "topBrandName": {
+      "x": 0,
+      "w": 0,
+      "h": 0
+    },
+    "topBrandNameText": "Mira",
+    "drLabel": null,
+    "drLabelText": null
+  },
+  {
+    "device": "desktop-1280",
+    "page": "login",
+    "vw": 1280,
+    "docOverflow": 0
+  }
+]

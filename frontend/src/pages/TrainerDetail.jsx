@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr } from '../api';
 import { AttendanceBar } from '../widgets';
+import AiInsights from '../AiInsights';
 
 /* Trainer 360 (organization only): profile + assigned batches with
    attendance + students taught + payouts/claims + leave requests. */
@@ -114,6 +115,7 @@ export default function TrainerDetail() {
             <b>{rep.avg_score ?? '—'}{rep.avg_score != null && '%'}</b>
           </p>
           <p className="meta">Weak areas: {(rep.weak_areas || []).map((w) => `${w.topic} (${w.pct}%)`).join(', ') || '—'}</p>
+          <AiInsights studentId={rep.id} />
           <button type="button" className="btn ghost" onClick={() => setRep(null)}>Close</button>
         </div>
       )}

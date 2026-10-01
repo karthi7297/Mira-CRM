@@ -14,9 +14,14 @@ const LEAD_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'CONVERTED',
 const PROGRESSABLE = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL'];
 const CONVERTIBLE = ['QUALIFIED', 'PROPOSAL'];
 
-async function listLeads({ search = '', status = '' } = {}) {
+/**
+ * List leads. `archived` switches between the live pipeline (default) and the
+ * archive view — the two never mix, so the pipeline stays clean (audit D8).
+ */
+async function listLeads({ search = '', status = '', archived = false } = {}) {
   let sql = 'SELECT * FROM leads WHERE 1=1';
   const params = [];
+  sql += archived ? ' AND archived_at IS NOT NULL' : ' AND archived_at IS NULL';
   if (search) {
     sql += ' AND (organization LIKE ? OR contact_person LIKE ? OR id LIKE ?)';
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
@@ -41,18 +46,42 @@ async function getLead(leadId) {
 
 async function createLead(body = {}) {
   requireFields(body, ['organization', 'contact_person']);
+  const org = str(body.organization);
+  const contact = str(body.contact_person);
+  const email = str(body.email) || null;
+
+  // Duplicate guard (audit E7): reject a second lead for the same org+contact,
+  // or the same contact email, so the pipeline never doubles up silently.
+  const dupe = email
+    ? await db.get(
+        `SELECT id, organization FROM leads
+          WHERE LOWER(email) = LOWER(?)
+             OR (LOWER(organization) = LOWER(?) AND LOWER(contact_person) = LOWER(?))
+          LIMIT 1`,
+        [email, org, contact]
+      )
+    : await db.get(
+        `SELECT id, organization FROM leads
+          WHERE LOWER(organization) = LOWER(?) AND LOWER(contact_person) = LOWER(?)
+          LIMIT 1`,
+        [org, contact]
+      );
+  if (dupe) {
+    throw conflict(`Duplicate lead — "${dupe.organization}" already exists as ${dupe.id}`);
+  }
+
   const id = await nid(db, 'LEAD', 'leads');
   await db.run(
     `INSERT INTO leads (id, assigned_to, lead_type, organization, contact_person, email, phone, requirement,
                         program, expected_students, expected_value, source, owner, status)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'NEW',?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'NEW')`,
     [
       id,
       str(body.assigned_to) || null,
       body.lead_type === 'DIRECT' ? 'DIRECT' : 'INSTITUTION',
-      str(body.organization),
-      str(body.contact_person),
-      str(body.email) || null,
+      org,
+      contact,
+      email,
       str(body.phone) || null,
       str(body.requirement) || null,
       str(body.program) || null,

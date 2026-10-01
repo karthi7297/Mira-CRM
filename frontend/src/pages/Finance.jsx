@@ -1,28 +1,42 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 import { BarChart, LineChart, PieChart, KPICard, AttendanceBar } from '../widgets';
 import { printExecutiveReport, printInvoice, printQuotation, printReceipt } from '../report';
+import { useListControls, ListToolbar, Pager, SortHeader, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, useSavedViews, SavedViewsBar, ListState, DateRange, ArchiveToggle } from '../listkit';
 
 export function Quotations() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
   const [viewQuo, setViewQuo] = useState(null);
+  const [archived, setArchived] = useState(false);
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('ALL');
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
 
   const load = () => {
-    api.quotations().then(setRows).catch((e) => setMsg(e.message));
+    setLoading(true); setLoadErr('');
+    api.quotations(archived ? '?archived=1' : '').then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
     api.customers().then(setCusts).catch(() => {});
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [archived]);
+
+  const doArchive = async (id) => {
+    if (!window.confirm('Archive this quotation? It leaves the list but stays recoverable.')) return;
+    try { await api.archive('quotations', id); toast('Quotation archived'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
+  const doRestore = async (id) => {
+    try { await api.restore('quotations', id); toast('Quotation restored'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -70,18 +84,21 @@ export function Quotations() {
     }
   };
 
-  const filtered = rows.filter((q) => {
-    if (filter !== 'ALL' && q.status !== filter) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        q.id.toLowerCase().includes(s) ||
-        (q.customer_name && q.customer_name.toLowerCase().includes(s)) ||
-        (q.program && q.program.toLowerCase().includes(s))
-      );
-    }
-    return true;
+  const base = useMemo(() => rows.filter((q) => filter === 'ALL' || q.status === filter), [rows, filter]);
+  const L = useListControls(base, {
+    searchKeys: ['id', 'customer_name', 'program', 'status'],
+    initialSort: { key: 'id', dir: 'desc' },
+    dateKey: 'created_at',
   });
+  const bulk = useBulkSelection();
+  const bulkStatus = async (status) => {
+    for (const id of bulk.ids) {
+      try { await api.patchQuotation(id, { status }); } catch { /* keep going */ }
+    }
+    toast(`Updated ${bulk.size} quotation(s) to ${status}`);
+    bulk.clear();
+    load();
+  };
 
   const totalValue = rows.reduce((acc, q) => acc + Number(q.total || 0), 0);
   const acceptedValue = rows.filter(q => q.status === 'ACCEPTED').reduce((acc, q) => acc + Number(q.total || 0), 0);
@@ -123,6 +140,8 @@ export function Quotations() {
       </div>
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
+
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No quotations yet." />
 
       <div className="cards kpi-strip">
         <KPICard compact title="Total Pipeline Value" value={inr(totalValue)} subtitle={`${rows.length} quotation documents`} color="var(--accent)" />
@@ -168,8 +187,12 @@ export function Quotations() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <ListToolbar
+        L={L}
+        placeholder="Search by ID, customer or program…"
+        sortOptions={[['id', 'ID'], ['customer_name', 'Customer'], ['program', 'Program'], ['total', 'Total'], ['status', 'Status']]}
+      >
+        <div className="seg" style={{ display: 'flex', gap: 4 }}>
           {['ALL', 'DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'].map((tab) => (
             <button type="button"
               key={tab}
@@ -180,20 +203,32 @@ export function Quotations() {
             </button>
           ))}
         </div>
-        <input
-          className="search-input"
-          style={{ maxWidth: 280, margin: 0 }}
-          placeholder="Search by ID, customer or program…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <DateRange L={L} label="Created" />
+        <ArchiveToggle value={archived} onChange={setArchived} />
+      </ListToolbar>
+
+      <BulkBar bulk={bulk}>
+        <button type="button" className="btn sm ghost" onClick={() => bulkStatus('SENT')}>Mark Sent</button>
+        <button type="button" className="btn sm ghost" onClick={() => bulkStatus('ACCEPTED')}>Mark Accepted</button>
+        <button type="button" className="btn sm ghost" onClick={() => bulkStatus('REJECTED')}>Mark Rejected</button>
+      </BulkBar>
 
       <table>
-        <thead><tr><th>ID</th><th>Customer</th><th>Program</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead>
+          <tr>
+            <SelectAllTh bulk={bulk} ids={L.rows.map((q) => q.id)} />
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Customer" k="customer_name" L={L} />
+            <SortHeader label="Program" k="program" L={L} />
+            <SortHeader label="Total" k="total" L={L} />
+            <SortHeader label="Status" k="status" L={L} />
+            <th>Actions</th>
+          </tr>
+        </thead>
         <tbody>
-          {filtered.map((q) => (
+          {L.rows.map((q) => (
             <tr key={q.id}>
+              <td><input type="checkbox" aria-label={`Select ${q.id}`} checked={bulk.has(q.id)} onChange={() => bulk.toggle(q.id)} /></td>
               <td className="mono"><b>{q.id}</b></td>
               <td><b>{q.customer_name}</b></td>
               <td>{q.program || '—'}</td>
@@ -212,13 +247,18 @@ export function Quotations() {
                       ✓ Accept
                     </button>
                   )}
+                  {user?.role === 'organization' && (archived
+                    ? <button type="button" className="btn sm ghost" onClick={() => doRestore(q.id)}>Restore</button>
+                    : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(q.id)}>Archive</button>)}
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {filtered.length === 0 && <p className="empty">No quotations matching filter.</p>}
+      {rows.length === 0 && <p className="empty">{archived ? 'No archived quotations.' : 'No quotations yet.'}</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No quotations matching filter.</p>}
+      <Pager L={L} />
 
       {/* Create Modal */}
       {show && (
@@ -311,20 +351,33 @@ export function Invoices() {
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
   const [payModal, setPayModal] = useState(null);
+  const [archived, setArchived] = useState(false);
   const [payForm, setPayForm] = useState({ method: 'Bank Transfer' });
   const [busy, setBusy] = useState(false);
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
   const [filter, setFilter] = useState('ALL');
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
 
   const load = () => {
-    api.invoices().then(setRows).catch((e) => setMsg(e.message));
+    setLoading(true); setLoadErr('');
+    api.invoices(archived ? '?archived=1' : '').then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
     api.customers().then(setCusts).catch(() => {});
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [archived]);
+
+  const doArchive = async (id) => {
+    if (!window.confirm('Archive this invoice? It leaves the receivables list but stays recoverable.')) return;
+    try { await api.archive('invoices', id); toast('Invoice archived'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
+  const doRestore = async (id) => {
+    try { await api.restore('invoices', id); toast('Invoice restored'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -375,18 +428,19 @@ export function Invoices() {
     }
   };
 
-  const filtered = rows.filter((i) => {
-    if (filter !== 'ALL' && i.status !== filter) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        i.id.toLowerCase().includes(s) ||
-        (i.customer_name && i.customer_name.toLowerCase().includes(s)) ||
-        (i.program && i.program.toLowerCase().includes(s))
-      );
-    }
-    return true;
+  const base = useMemo(() => rows.filter((i) => filter === 'ALL' || i.status === filter), [rows, filter]);
+  const L = useListControls(base, {
+    searchKeys: ['id', 'customer_name', 'program', 'status'],
+    initialSort: { key: 'id', dir: 'desc' },
+    dateKey: 'due_date',
   });
+  const bulk = useBulkSelection();
+  const views = useSavedViews('invoices',
+    () => ({ q: L.q, sort: L.sort, filter, archived, from: L.from, to: L.to }),
+    (s) => {
+      L.setQ(s.q || ''); L.setSort(s.sort || null); setFilter(s.filter || 'ALL');
+      setArchived(!!s.archived); L.setFrom(s.from || ''); L.setTo(s.to || '');
+    });
 
   const totalBilled = rows.reduce((acc, i) => acc + Number(i.total || 0), 0);
   const totalPaid = rows.reduce((acc, i) => acc + Number(i.paid || 0), 0);
@@ -438,6 +492,8 @@ export function Invoices() {
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No invoices yet." />
+
       <div className="cards kpi-strip">
         <KPICard compact title="Total Billed" value={inr(totalBilled)} subtitle={`${rows.length} invoices issued`} color="var(--accent)" />
         <KPICard compact title="Collected" value={inr(totalPaid)} subtitle={`${collectionRate}% recovery rate`} trend={`${collectionRate - 60}%`} trendUp={collectionRate >= 60} color="var(--ok)" />
@@ -482,8 +538,13 @@ export function Invoices() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <SavedViewsBar views={views} />
+      <ListToolbar
+        L={L}
+        placeholder="Search by ID or customer…"
+        sortOptions={[['id', 'ID'], ['customer_name', 'Customer'], ['due_date', 'Due Date'], ['total', 'Total'], ['outstanding', 'Outstanding'], ['status', 'Status']]}
+      >
+        <div style={{ display: 'flex', gap: 4 }}>
           {['ALL', 'UNPAID', 'PARTIALLY_PAID', 'PAID', 'OVERDUE'].map((tab) => (
             <button type="button"
               key={tab}
@@ -494,30 +555,25 @@ export function Invoices() {
             </button>
           ))}
         </div>
-        <input
-          className="search-input"
-          style={{ maxWidth: 280, margin: 0 }}
-          placeholder="Search by ID or customer…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <DateRange L={L} label="Due" />
+        <ArchiveToggle value={archived} onChange={setArchived} />
+      </ListToolbar>
 
       <table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Customer</th>
-            <th>Due Date</th>
-            <th>Total</th>
-            <th>Paid</th>
-            <th>Outstanding</th>
-            <th>Status</th>
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Customer" k="customer_name" L={L} />
+            <SortHeader label="Due Date" k="due_date" L={L} />
+            <SortHeader label="Total" k="total" L={L} />
+            <SortHeader label="Paid" k="paid" L={L} />
+            <SortHeader label="Outstanding" k="outstanding" L={L} />
+            <SortHeader label="Status" k="status" L={L} />
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((i) => (
+          {L.rows.map((i) => (
             <tr key={i.id}>
               <td className="mono"><b>{i.id}</b></td>
               <td><b>{i.customer_name}</b></td>
@@ -529,7 +585,7 @@ export function Invoices() {
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <Link to={'/invoices/' + i.id} className="btn sm ghost">Open</Link>
-                  {i.outstanding > 0 && (
+                  {!archived && i.outstanding > 0 && (
                     <button type="button"
                       className="btn sm"
                       style={{ background: '#2563eb', borderColor: '#2563eb' }}
@@ -541,13 +597,18 @@ export function Invoices() {
                       Record Payment
                     </button>
                   )}
+                  {user?.role === 'organization' && (archived
+                    ? <button type="button" className="btn sm ghost" onClick={() => doRestore(i.id)}>Restore</button>
+                    : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(i.id)}>Archive</button>)}
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {filtered.length === 0 && <p className="empty">No invoices found matching filter.</p>}
+      {rows.length === 0 && <p className="empty">{archived ? 'No archived invoices.' : 'No invoices yet.'}</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No invoices found matching filter.</p>}
+      <Pager L={L} />
 
       {/* Create Modal */}
       {show && (
@@ -772,24 +833,21 @@ export function InvoiceDetail() {
 
 export function Payments() {
   const [rows, setRows] = useState([]);
-  const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('ALL');
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
 
-  useEffect(() => { api.payments().then(setRows); }, []);
+  const load = () => {
+    setLoading(true); setLoadErr('');
+    return api.payments().then(setRows).catch((e) => setLoadErr(e.message)).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
 
-  const filtered = rows.filter((p) => {
-    if (methodFilter !== 'ALL' && p.method !== methodFilter) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        p.id.toLowerCase().includes(s) ||
-        p.invoice_id.toLowerCase().includes(s) ||
-        (p.customer_name && p.customer_name.toLowerCase().includes(s)) ||
-        (p.reference && p.reference.toLowerCase().includes(s))
-      );
-    }
-    return true;
+  const base = useMemo(() => rows.filter((p) => methodFilter === 'ALL' || p.method === methodFilter), [rows, methodFilter]);
+  const L = useListControls(base, {
+    searchKeys: ['id', 'invoice_id', 'customer_name', 'reference', 'method'],
+    initialSort: { key: 'date', dir: 'desc' },
   });
 
   const totalCollected = rows.reduce((acc, p) => acc + Number(p.amount || 0), 0);
@@ -830,6 +888,8 @@ export function Payments() {
           </button>
         )}
       </div>
+
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No payments recorded yet." />
 
       <div className="cards kpi-strip">
         <KPICard compact title="Total Collected" value={inr(totalCollected)} subtitle={`${rows.length} transactions processed`} color="var(--accent)" />
@@ -924,8 +984,12 @@ export function Payments() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <ListToolbar
+        L={L}
+        placeholder="Search by ID, customer or reference…"
+        sortOptions={[['id', 'ID'], ['customer_name', 'Customer'], ['amount', 'Amount'], ['method', 'Method'], ['date', 'Date']]}
+      >
+        <div style={{ display: 'flex', gap: 4 }}>
           {['ALL', 'Bank Transfer', 'UPI', 'Cheque', 'Cash'].map((m) => (
             <button type="button"
               key={m}
@@ -936,30 +1000,23 @@ export function Payments() {
             </button>
           ))}
         </div>
-        <input
-          className="search-input"
-          style={{ maxWidth: 280, margin: 0 }}
-          placeholder="Search by ID, customer or reference…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      </ListToolbar>
 
       <table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Invoice</th>
-            <th>Customer</th>
-            <th>Amount</th>
-            <th>Method</th>
-            <th>Date</th>
+            <SortHeader label="ID" k="id" L={L} />
+            <SortHeader label="Invoice" k="invoice_id" L={L} />
+            <SortHeader label="Customer" k="customer_name" L={L} />
+            <SortHeader label="Amount" k="amount" L={L} />
+            <SortHeader label="Method" k="method" L={L} />
+            <SortHeader label="Date" k="date" L={L} />
             <th>Reference</th>
             <th>Receipt</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((p) => (
+          {L.rows.map((p) => (
             <tr key={p.id}>
               <td className="mono"><b>{p.id}</b></td>
               <td><Link to={'/invoices/' + p.invoice_id} className="mono">{p.invoice_id}</Link></td>
@@ -975,7 +1032,9 @@ export function Payments() {
           ))}
         </tbody>
       </table>
-      {filtered.length === 0 && <p className="empty">No payments recorded matching filter.</p>}
+      {rows.length === 0 && <p className="empty">No payments recorded yet.</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No payments recorded matching filter.</p>}
+      <Pager L={L} />
 
       {/* Receipt Modal */}
       {selectedReceipt && (
@@ -1025,9 +1084,36 @@ export function Expenses() {
   const [busy, setBusy] = useState(false);
   const [catFilter, setCatFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
+  // Linkage pickers (audit E5 / D21)
+  const [custs, setCusts] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [trainers, setTrainers] = useState([]);
 
-  const load = () => api.expenses().then(setRows);
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    setLoading(true); setLoadErr('');
+    return api.expenses(archived ? '?archived=1' : '')
+      .then(setRows).catch((e) => { setLoadErr(e.message); setMsg(e.message); }).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [archived]);
+  // Pickers for the linkage selects — loaded once.
+  useEffect(() => {
+    api.customers().then(setCusts).catch(() => {});
+    api.batches().then(setBatches).catch(() => {});
+    api.trainers().then(setTrainers).catch(() => {});
+  }, []);
+
+  const doArchive = async (id) => {
+    if (!window.confirm('Archive this expense? It leaves the list but stays recoverable.')) return;
+    try { await api.archive('expenses', id); toast('Expense archived'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
+  const doRestore = async (id) => {
+    try { await api.restore('expenses', id); toast('Expense restored'); load(); }
+    catch (e) { setMsg(e.message); }
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -1054,11 +1140,24 @@ export function Expenses() {
     }
   };
 
-  const filtered = rows.filter((x) => {
-    if (catFilter !== 'ALL' && x.category !== catFilter) return false;
-    if (statusFilter !== 'ALL' && x.status !== statusFilter) return false;
-    return true;
+  const base = useMemo(
+    () => rows.filter((x) => (catFilter === 'ALL' || x.category === catFilter) && (statusFilter === 'ALL' || x.status === statusFilter)),
+    [rows, catFilter, statusFilter],
+  );
+  const L = useListControls(base, {
+    searchKeys: ['id', 'category', 'vendor', 'description', 'status', 'customer_name', 'trainer_name', 'batch_label'],
+    initialSort: { key: 'date', dir: 'desc' },
+    dateKey: 'date',
   });
+  const bulk = useBulkSelection();
+  const bulkAction = async (action) => {
+    for (const id of bulk.ids) {
+      try { await api.patchExpense(id, { action }); } catch { /* keep going */ }
+    }
+    toast(`Updated ${bulk.size} expense(s)`);
+    bulk.clear();
+    load();
+  };
 
   const totalExpense = rows.reduce((acc, x) => acc + Number(x.amount || 0), 0);
   const trainerExpense = rows.filter(x => x.category === 'Trainer').reduce((acc, x) => acc + Number(x.amount || 0), 0);
@@ -1092,6 +1191,8 @@ export function Expenses() {
       </div>
 
       {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
+
+      <ListState loading={loading} error={loadErr} onRetry={load} empty={!loading && !loadErr && rows.length === 0} emptyText="No expenses recorded yet." />
 
       <div className="cards kpi-strip">
         <KPICard compact title="Total Expenses" value={inr(totalExpense)} subtitle={`${rows.length} expense line items`} color="var(--accent)" />
@@ -1184,12 +1285,33 @@ export function Expenses() {
           </select>
           <input placeholder="Vendor / Payee" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} />
           <input placeholder="Description" value={f.description || ''} onChange={(e) => setF({ ...f, description: e.target.value })} />
-          <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />                <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : '+ Add Expense'}</button>
+          <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+          {/* Optional linkage (audit E5 / D21) — attribute the cost to a customer,
+              batch, or trainer so expenses roll up per account / delivery. */}
+          <select aria-label="Customer (optional)" value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
+            <option value="">Link customer… (optional)</option>
+            {custs.map((c) => <option key={c.id} value={c.id}>{c.name || c.id}</option>)}
+          </select>
+          <select aria-label="Batch (optional)" value={f.batch_id || ''} onChange={(e) => setF({ ...f, batch_id: e.target.value })}>
+            <option value="">Link batch… (optional)</option>
+            {batches.map((b) => <option key={b.id} value={b.id}>{b.id}{b.program_name ? ` · ${b.program_name}` : ''}</option>)}
+          </select>
+          <select aria-label="Trainer (optional)" value={f.trainer_id || ''} onChange={(e) => setF({ ...f, trainer_id: e.target.value })}>
+            <option value="">Link trainer… (optional)</option>
+            {trainers.map((t) => <option key={t.id} value={t.id}>{t.name || t.id}</option>)}
+          </select>
+          <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : '+ Add Expense'}</button>
         </form>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <ListToolbar
+        L={L}
+        placeholder="Search expenses…"
+        sortOptions={[['date', 'Date'], ['category', 'Category'], ['vendor', 'Vendor'], ['amount', 'Amount'], ['status', 'Status']]}
+      >
+        <DateRange L={L} label="Date" />
+        <ArchiveToggle value={archived} onChange={setArchived} />
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {['ALL', 'Trainer', 'Venue', 'Operations', 'Marketing', 'Materials', 'Travel'].map((cat) => (
             <button type="button"
               key={cat}
@@ -1200,7 +1322,7 @@ export function Expenses() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {['ALL', 'PENDING', 'APPROVED', 'PAID'].map((st) => (
             <button type="button"
               key={st}
@@ -1211,28 +1333,47 @@ export function Expenses() {
             </button>
           ))}
         </div>
-      </div>
+      </ListToolbar>
+
+      <BulkBar bulk={bulk}>
+        <button type="button" className="btn sm" onClick={() => bulkAction('approve')}>Approve</button>
+        <button type="button" className="btn sm ghost" onClick={() => bulkAction('pay')}>Mark Paid</button>
+      </BulkBar>
 
       <table>
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Vendor / Payee</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Status</th>
+            <SelectAllTh bulk={bulk} ids={L.rows.map((x) => x.id)} />
+            <SortHeader label="Date" k="date" L={L} />
+            <SortHeader label="Category" k="category" L={L} />
+            <SortHeader label="Vendor / Payee" k="vendor" L={L} />
+            <SortHeader label="Description" k="description" L={L} />
+            <SortHeader label="Amount" k="amount" L={L} />
+            <SortHeader label="Linked To" k="customer_name" L={L} />
+            <SortHeader label="Status" k="status" L={L} />
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((x) => (
+          {L.rows.map((x) => (
             <tr key={x.id}>
+              <td><input type="checkbox" aria-label={`Select ${x.id}`} checked={bulk.has(x.id)} onChange={() => bulk.toggle(x.id)} /></td>
               <td>{x.date}</td>
               <td><span className="chip">{x.category}</span></td>
               <td><b>{x.vendor || '—'}</b></td>
               <td>{x.description || '—'}</td>
               <td><b>{inr(x.amount)}</b></td>
+              <td>
+                {x.customer_name || x.trainer_name || x.batch_label ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {x.customer_name && <span className="chip">{x.customer_name}</span>}
+                    {x.batch_label && <span style={{ fontSize: 12, color: '#94a3b8' }}>Batch {x.batch_label}</span>}
+                    {x.trainer_name && <span style={{ fontSize: 12, color: '#94a3b8' }}>Trainer: {x.trainer_name}</span>}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>Unlinked</span>
+                )}
+              </td>
               <td>
                 <span className={'chip ' + (x.status === 'PAID' ? 'PRESENT' : x.status === 'PENDING' ? 'LATE' : 'ABSENT')}>
                   {x.status}
@@ -1255,12 +1396,19 @@ export function Expenses() {
                   </button>
                 )}
                 {x.status === 'PAID' && <span style={{ fontSize: 12, color: '#94a3b8' }}>Settled</span>}
+                {user?.role === 'organization' && (
+                  archived
+                    ? <button type="button" className="btn sm ghost" onClick={() => doRestore(x.id)}>Restore</button>
+                    : <button type="button" className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => doArchive(x.id)}>Archive</button>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {filtered.length === 0 && <p className="empty">No expenses match the selected filters.</p>}
+      {rows.length === 0 && <p className="empty">{archived ? 'No archived expenses.' : 'No expenses recorded yet.'}</p>}
+      {rows.length > 0 && L.total === 0 && <p className="empty">No expenses match the selected filters.</p>}
+      <Pager L={L} />
     </div>
   );
 }

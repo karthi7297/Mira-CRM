@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "Customer360 Contacts tab renders",
+      "pass": true
+    },
+    {
+      "name": "Add contact persists",
+      "pass": true
+    },
+    {
+      "name": "Support ticket created",
+      "pass": true
+    },
+    {
+      "name": "Announcement created",
+      "pass": true
+    },
+    {
+      "name": "Profile page loads",
+      "pass": true
+    },
+    {
+      "name": "Profile save works",
+      "pass": true
+    },
+    {
+      "name": "Users page loads",
+      "pass": true
+    },
+    {
+      "name": "no page errors",
+      "pass": true,
+      "errors": []
+    }
+  ]
+}

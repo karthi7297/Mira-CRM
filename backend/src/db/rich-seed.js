@@ -203,8 +203,8 @@ async function richSeed(db) {
   ];
   for (const [id, batch, title, max, on] of assessments) {
     await ensure(db, 'assessments', id,
-      'INSERT INTO assessments (id,batch_id,title,max_score,assessed_on) VALUES (?,?,?,?,?)',
-      [id, batch, title, max, on]);
+      'INSERT INTO assessments (id,batch_id,title,max_score,assessed_on,status) VALUES (?,?,?,?,?,?)',
+      [id, batch, title, max, on, 'PUBLISHED']);
   }
   // Scores: every enrolled student × every assessment in their batch (keeps old 12 rows)
   const allAssess = await db.query('SELECT id, batch_id FROM assessments');
@@ -340,8 +340,12 @@ async function richSeed(db) {
   await db.run("UPDATE leads SET source='Website' WHERE source IS NULL OR source=''");
   await db.run("UPDATE leads SET owner='Sales Exec' WHERE owner IS NULL OR owner=''");
 
+  // ---------- 15. Feedback demo content (forms + sentiment-scored responses) ----------
+  const { seedFeedback } = require('./feedback-seed');
+  await seedFeedback(db);
+
   const counts = {};
-  for (const t of ['users', 'trainers', 'students', 'enrollments', 'attendance', 'sessions', 'assessments', 'scores', 'materials', 'interests', 'certificates', 'batches', 'payments', 'expenses', 'lead_followups']) {
+  for (const t of ['users', 'trainers', 'students', 'enrollments', 'attendance', 'sessions', 'assessments', 'scores', 'materials', 'interests', 'certificates', 'batches', 'payments', 'expenses', 'lead_followups', 'feedback_forms', 'feedback_questions', 'feedback_responses', 'feedback_answers']) {
     counts[t] = (await db.query(`SELECT COUNT(*) c FROM ${t}`))[0].c;
   }
   console.log('[rich-seed] done:', JSON.stringify(counts));

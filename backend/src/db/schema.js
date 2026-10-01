@@ -249,6 +249,7 @@ function apply(db) {
     title          TEXT NOT NULL,
     max_score      REAL NOT NULL DEFAULT 100,
     assessed_on    TEXT,
+    status         TEXT NOT NULL DEFAULT 'DRAFT',
     created_by     TEXT REFERENCES users(id),
     created_at     TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -354,6 +355,143 @@ function apply(db) {
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  -- ================= Support & requests / Announcements / Contacts =========
+  CREATE TABLE IF NOT EXISTS support_tickets (
+    ticket_key   INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT NOT NULL UNIQUE,
+    kind         TEXT NOT NULL DEFAULT 'SUPPORT',   -- SUPPORT | REQUEST
+    category     TEXT,
+    subject      TEXT NOT NULL,
+    body         TEXT,
+    priority     TEXT NOT NULL DEFAULT 'NORMAL',    -- LOW | NORMAL | HIGH | URGENT
+    status       TEXT NOT NULL DEFAULT 'OPEN',      -- OPEN | IN_PROGRESS | RESOLVED | CLOSED
+    created_by   TEXT REFERENCES users(id),
+    created_role TEXT,
+    customer_id  TEXT REFERENCES customers(id),
+    batch_id     TEXT REFERENCES batches(id),
+    response     TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS announcements (
+    announcement_key INTEGER PRIMARY KEY AUTOINCREMENT,
+    id               TEXT NOT NULL UNIQUE,
+    title            TEXT NOT NULL,
+    body             TEXT,
+    audience         TEXT NOT NULL DEFAULT 'ALL',   -- ALL | CUSTOMER | BATCH
+    customer_id      TEXT REFERENCES customers(id),
+    batch_id         TEXT REFERENCES batches(id),
+    created_by       TEXT REFERENCES users(id),
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS customer_contacts (
+    contact_key  INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT NOT NULL UNIQUE,
+    customer_id  TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    title        TEXT,
+    email        TEXT,
+    phone        TEXT,
+    is_primary   INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- ================= Notifications (audit B4 / F7) =================
+  -- An actionable in-app inbox that the topbar bell reads. A notification
+  -- targets one user (audience_user) or everyone in a role (audience_role).
+  -- Read state lives in notification_reads, so a role broadcast still keeps a
+  -- per-user unread count instead of one person clearing it for everyone.
+  CREATE TABLE IF NOT EXISTS notifications (
+    notification_key INTEGER PRIMARY KEY AUTOINCREMENT,
+    id               TEXT NOT NULL UNIQUE,
+    audience_user    TEXT REFERENCES users(id),
+    audience_role    TEXT,
+    kind             TEXT NOT NULL DEFAULT 'INFO'
+                     CHECK (kind IN ('INFO','SUCCESS','WARNING','ERROR')),
+    title            TEXT NOT NULL,
+    body             TEXT,
+    link             TEXT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS notification_reads (
+    notification_id TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    user_id         TEXT NOT NULL,
+    read_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (notification_id, user_id)
+  );
+
+  -- ================= Feedback (forms → responses → sentiment) ==============
+  -- Two audiences:
+  --   STUDENT     — the institution (or Rampex) asks its students how delivery
+  --                 is going. Students submit; the form's owner reads them.
+  --   INSTITUTION — an institution (or Rampex) gives feedback on the platform
+  --                 itself. Institutions and Rampex submit; Rampex reads all.
+  -- Visibility (enforced in services/feedback.service.js, never in the client):
+  --   organization → every form + every response
+  --   institution  → only forms it created, and only their responses
+  --   student      → STUDENT forms addressed to it, and its own submissions
+  -- Every text answer is scored for sentiment on write, so classification is a
+  -- stored fact rather than something recomputed on each read.
+  CREATE TABLE IF NOT EXISTS feedback_forms (
+    form_key        INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT NOT NULL UNIQUE,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    audience        TEXT NOT NULL DEFAULT 'STUDENT' CHECK (audience IN ('STUDENT','INSTITUTION')),
+    created_by_role TEXT NOT NULL CHECK (created_by_role IN ('ORGANIZATION','INSTITUTION','TRAINER')),
+    created_by      TEXT REFERENCES users(id),
+    customer_id     TEXT REFERENCES customers(id),
+    status          TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','CLOSED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS feedback_questions (
+    question_key INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT NOT NULL UNIQUE,
+    form_id      TEXT NOT NULL REFERENCES feedback_forms(id) ON DELETE CASCADE,
+    text         TEXT NOT NULL,
+    qtype        TEXT NOT NULL DEFAULT 'RATING' CHECK (qtype IN ('RATING','TEXT','CHOICE')),
+    options      TEXT,
+    order_index  INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS feedback_responses (
+    response_key    INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT NOT NULL UNIQUE,
+    form_id         TEXT NOT NULL REFERENCES feedback_forms(id) ON DELETE CASCADE,
+    submitted_by    TEXT REFERENCES users(id),
+    submitted_role  TEXT,
+    student_id      TEXT REFERENCES students(id),
+    customer_id     TEXT REFERENCES customers(id),
+    sentiment       TEXT CHECK (sentiment IN ('POSITIVE','NEUTRAL','NEGATIVE') OR sentiment IS NULL),
+    sentiment_score REAL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    -- One response per person per form: stops accidental double submits.
+    UNIQUE (form_id, submitted_by)
+  );
+
+  CREATE TABLE IF NOT EXISTS feedback_answers (
+    answer_key      INTEGER PRIMARY KEY AUTOINCREMENT,
+    response_id     TEXT NOT NULL REFERENCES feedback_responses(id) ON DELETE CASCADE,
+    question_id     TEXT NOT NULL REFERENCES feedback_questions(id) ON DELETE CASCADE,
+    value           TEXT,
+    rating          INTEGER,
+    sentiment       TEXT CHECK (sentiment IN ('POSITIVE','NEUTRAL','NEGATIVE') OR sentiment IS NULL),
+    sentiment_score REAL,
+    UNIQUE (response_id, question_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_feedback_questions_form
+    ON feedback_questions (form_id, order_index);
+  CREATE INDEX IF NOT EXISTS idx_feedback_responses_form
+    ON feedback_responses (form_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_feedback_answers_response
+    ON feedback_answers (response_id);
 
   CREATE INDEX IF NOT EXISTS idx_recipients_due
     ON campaign_recipients (status, scheduled_at);

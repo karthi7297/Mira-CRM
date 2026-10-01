@@ -16,6 +16,7 @@ function getScope(req) {
   const role = String(req.header('x-role') || '').toLowerCase();
   const s = {
     role: ROLES.includes(role) ? role : null,
+    user_id: req.header('x-user') || null,
     customer_id: req.header('x-customer') || null,
     trainer_id: req.header('x-trainer') || null,
     student_id: req.header('x-student') || null,

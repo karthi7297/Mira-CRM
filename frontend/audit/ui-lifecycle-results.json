@@ -1,0 +1,151 @@
+{
+  "results": [
+    {
+      "name": "logged in (left the login screen)",
+      "pass": true,
+      "detail": "url=http://localhost:5173/"
+    },
+    {
+      "name": "notification bell renders in the topbar",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "notification bell opens a panel",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Leads: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Leads: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Institutions: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Institutions: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Programs: archive toggle present",
+      "pass": true,
+      "detail": "no rows in seed"
+    },
+    {
+      "name": "Trainers: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Batches: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Batches: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Students: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Students: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Quotations: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Quotations: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Invoices: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Invoices: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: archive toggle present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: date-range picker present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: customer linkage select",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: batch linkage select",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: trainer linkage select",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Expenses: \"Linked To\" column header",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "Leads: Archive removes the row from the live list",
+      "pass": true,
+      "detail": "9 -> 8"
+    },
+    {
+      "name": "Leads: archived row appears in the archive view",
+      "pass": true,
+      "detail": "rows=1"
+    },
+    {
+      "name": "Leads: Restore puts the row back in the live list",
+      "pass": true,
+      "detail": "expected 9, got 9"
+    },
+    {
+      "name": "Leads: \"Merge duplicates\" opens the merge modal",
+      "pass": true,
+      "detail": "selects=2"
+    },
+    {
+      "name": "Leads: a far-future \"from\" date filters every row out",
+      "pass": true,
+      "detail": "9 -> 0"
+    },
+    {
+      "name": "no uncaught page errors",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "passed": 29,
+  "total": 29
+}

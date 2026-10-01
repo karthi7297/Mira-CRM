@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, inr, toast, toastError } from '../api';
 import { printCertificate } from '../report';
 import { useAuth } from '../auth';
+import AiInsights from '../AiInsights';
 
 const TABS = ['Overview', 'Performance', 'Marks', 'Material', 'Certificates', 'Interests', 'Fee'];
 
@@ -112,9 +113,10 @@ export default function MyLearning() {
             </div>
           </div>
 
+          {d.student?.id && <AiInsights studentId={d.student.id} />}
+
           <div className="card mt">
-            <h4>Recent Attendance</h4>
-            <div className="list">
+            <h4>Recent Attendance</h4>            <div className="list">
               {d.attendance.map((a, i) => (
                 <div className="list-row" key={i}>
                   <span className="mono grow">{a.date}</span>
