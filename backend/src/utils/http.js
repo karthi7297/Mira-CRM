@@ -14,6 +14,8 @@ const unauthorized = (message = 'Unauthorized') => new HttpError(401, message);
 const forbidden = (message = 'Not authorized') => new HttpError(403, message);
 const notFound = (message = 'Not found') => new HttpError(404, message);
 const conflict = (message) => new HttpError(409, message);
+/** Business-rule rejections that are neither bad syntax (400) nor server errors. */
+const unprocessable = (message) => new HttpError(422, message);
 
 function ok(res, data) {
   res.json({ success: true, data });
@@ -46,6 +48,11 @@ function dbClientError(err) {
 // eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
   if (err instanceof HttpError) return fail(res, err.message, err.status);
+  // Plain Errors carrying a numeric HTTP status (e.g. err.status = 422 on the
+  // certificate attendance rule) map through too, so a domain rule never 500s.
+  if (err && typeof err.status === 'number' && err.status >= 400 && err.status < 500) {
+    return fail(res, err.message, err.status);
+  }
   if (dbClientError(err)) return fail(res, `Invalid request: ${err.message}`, 400);
   console.error('[unhandled]', err);
   return fail(res, 'Internal server error', 500);
@@ -63,4 +70,5 @@ module.exports = {
   asyncHandler,
   notFoundHandler,
   errorHandler,
+  unprocessable,
 };

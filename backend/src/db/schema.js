@@ -273,6 +273,95 @@ function apply(db) {
     issued_on       TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- ============ OUTREACH / COLD MAIL (ORGANIZATION only) ============
+  -- Automated lead generation: reusable templates, throttled campaigns, a send
+  -- queue with follow-up steps, open tracking, and a suppression list. The
+  -- suppression list and unsubscribe footer are not optional extras — Gmail
+  -- will suspend an account that keeps mailing people who opted out.
+
+  CREATE TABLE IF NOT EXISTS email_templates (
+    template_key INTEGER PRIMARY KEY AUTOINCREMENT,
+    id           TEXT NOT NULL UNIQUE,
+    name         TEXT NOT NULL,
+    category     TEXT NOT NULL DEFAULT 'COLD_OUTREACH'
+                 CHECK (category IN ('COLD_OUTREACH','FOLLOW_UP','NURTURE','RE_ENGAGE')),
+    subject      TEXT NOT NULL,
+    body         TEXT NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS campaigns (
+    campaign_key   INTEGER PRIMARY KEY AUTOINCREMENT,
+    id             TEXT NOT NULL UNIQUE,
+    name           TEXT NOT NULL,
+    template_id    TEXT NOT NULL REFERENCES email_templates(id),
+    -- Optional second template for follow-up steps. Null -> follow-ups reuse
+    -- template_id with a "Re:" subject, which is what most outreach tools do.
+    followup_template_id TEXT REFERENCES email_templates(id),
+    status         TEXT NOT NULL DEFAULT 'DRAFT'
+                   CHECK (status IN ('DRAFT','RUNNING','PAUSED','COMPLETED')),
+    from_name      TEXT,
+    daily_limit    INTEGER NOT NULL DEFAULT 40,
+    window_start   INTEGER NOT NULL DEFAULT 10,
+    window_end     INTEGER NOT NULL DEFAULT 18,
+    follow_up_days TEXT NOT NULL DEFAULT '[0,3,7]',
+    max_followups  INTEGER NOT NULL DEFAULT 2,
+    created_by     TEXT REFERENCES users(id),
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at     TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS campaign_recipients (
+    recipient_key   INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT NOT NULL UNIQUE,
+    campaign_id     TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    lead_id         TEXT REFERENCES leads(id),
+    email           TEXT NOT NULL,
+    name            TEXT,
+    organization    TEXT,
+    step            INTEGER NOT NULL DEFAULT 0,
+    scheduled_at    TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'QUEUED'
+                    CHECK (status IN ('QUEUED','SENDING','SENT','FAILED','SKIPPED','UNSUBSCRIBED','BOUNCED','REPLIED')),
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    sent_at         TEXT,
+    last_error      TEXT,
+    message_id      TEXT,
+    open_token      TEXT UNIQUE,
+    open_count      INTEGER NOT NULL DEFAULT 0,
+    first_opened_at TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS email_events (
+    event_key    INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipient_id TEXT REFERENCES campaign_recipients(id) ON DELETE CASCADE,
+    campaign_id  TEXT,
+    type         TEXT NOT NULL,
+    detail       TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS suppressions (
+    email      TEXT PRIMARY KEY,
+    reason     TEXT NOT NULL DEFAULT 'UNSUBSCRIBED',
+    detail     TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS automation_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_recipients_due
+    ON campaign_recipients (status, scheduled_at);
+  CREATE INDEX IF NOT EXISTS idx_recipients_campaign
+    ON campaign_recipients (campaign_id, status);
+  CREATE INDEX IF NOT EXISTS idx_events_recipient
+    ON email_events (recipient_id);
+
   -- ============ Invoice status bookkeeping (master-prd §8) ============
   -- Recompute paid / outstanding / status whenever money or due dates move,
   -- so every read path sees one consistent derivation.

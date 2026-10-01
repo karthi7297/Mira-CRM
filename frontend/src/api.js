@@ -79,6 +79,43 @@ export const api = {
   trend: () => req('/reports/trend'),
   certificates: () => req('/certificates'),
   issueCertificate: (b) => req('/certificates', { method: 'POST', body: JSON.stringify(b) }),
+  // Role-scoped assistant. Only the conversation is sent — the server derives
+  // the caller's role and scope from the headers above, so scope can't be faked.
+  assistantChat: (messages) => req('/assistant/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
+
+  // ---- Cold mail / outreach (organization only) ----
+  // The scheduler runs server-side, so these calls only configure and inspect
+  // it — closing the tab never stops a campaign.
+  outreachOverview: () => req('/outreach/overview'),
+  saveOutreachSettings: (b) => req('/outreach/settings', { method: 'PATCH', body: JSON.stringify(b) }),
+  outreachTest: () => req('/outreach/test-connection', { method: 'POST', body: '{}' }),
+  outreachRunNow: () => req('/outreach/run-now', { method: 'POST', body: '{}' }),
+
+  outreachTemplates: () => req('/outreach/templates'),
+  createOutreachTemplate: (b) => req('/outreach/templates', { method: 'POST', body: JSON.stringify(b) }),
+  patchOutreachTemplate: (id, b) => req('/outreach/templates/' + id, { method: 'PATCH', body: JSON.stringify(b) }),
+  deleteOutreachTemplate: (id) => req('/outreach/templates/' + id, { method: 'DELETE' }),
+  outreachPreview: (b) => req('/outreach/preview', { method: 'POST', body: JSON.stringify(b) }),
+
+  outreachCampaigns: () => req('/outreach/campaigns'),
+  outreachCampaign: (id) => req('/outreach/campaigns/' + id),
+  createOutreachCampaign: (b) => req('/outreach/campaigns', { method: 'POST', body: JSON.stringify(b) }),
+  patchOutreachCampaign: (id, b) => req('/outreach/campaigns/' + id, { method: 'PATCH', body: JSON.stringify(b) }),
+  deleteOutreachCampaign: (id) => req('/outreach/campaigns/' + id, { method: 'DELETE' }),
+  outreachCampaignStatus: (id, status) =>
+    req(`/outreach/campaigns/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
+  outreachAudience: (id, b) =>
+    req(`/outreach/campaigns/${id}/audience`, { method: 'POST', body: JSON.stringify(b || {}) }),
+  outreachImport: (id, b) =>
+    req(`/outreach/campaigns/${id}/recipients`, { method: 'POST', body: JSON.stringify(b) }),
+  outreachRecipients: (id, q = '') => req(`/outreach/campaigns/${id}/recipients` + q),
+  outreachReplied: (id, rid) =>
+    req(`/outreach/campaigns/${id}/recipients/${rid}/replied`, { method: 'POST', body: '{}' }),
+  outreachRemoveRecipient: (id, rid) => req(`/outreach/campaigns/${id}/recipients/${rid}`, { method: 'DELETE' }),
+
+  outreachSuppressions: (q = '') => req('/outreach/suppressions' + q),
+  outreachSuppress: (b) => req('/outreach/suppressions', { method: 'POST', body: JSON.stringify(b) }),
+  outreachUnsuppress: (email) => req('/outreach/suppressions/' + encodeURIComponent(email), { method: 'DELETE' }),
 };
 export function downloadCSV(filename, rows) {
   if (!rows.length) return;
@@ -89,6 +126,8 @@ export function downloadCSV(filename, rows) {
   a.download = filename; a.click(); URL.revokeObjectURL(a.href);
 }
 let toastFn = null;
-export const toast = (msg) => { if (toastFn) toastFn(msg); };
+/** toast('Saved') → success; toast('X failed', 'error') → error styling. */
+export const toast = (msg, kind = 'success') => { if (toastFn) toastFn(msg, kind); };
+export const toastError = (msg) => toast(msg, 'error');
 export function registerToast(fn) { toastFn = fn; }
 export const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');

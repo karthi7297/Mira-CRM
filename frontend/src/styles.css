@@ -88,6 +88,10 @@
 
 html { -webkit-text-size-adjust: 100%; }
 
+/* Global horizontal-overflow guard: long IDs/emails/URLs can't push the page
+   wider than the viewport on mobile; tables already opt into their own scroll. */
+html, body { overflow-x: clip; max-width: 100vw; }
+
 body {
   margin: 0;
   background: var(--paper);
@@ -104,6 +108,10 @@ img, svg { display: block; max-width: 100%; }
 
 a { color: var(--accent-ink); text-decoration: none; transition: color 0.14s ease; }
 a:hover { color: var(--accent); }
+
+/* Long unbroken strings (emails, UTR refs, certificate codes) wrap instead of
+   stretching their container. */
+a, p, span, td, th, small, b, h1, h2, h3, h4 { overflow-wrap: anywhere; }
 
 ::selection { background: var(--accent-soft); color: var(--accent-ink); }
 
@@ -1151,6 +1159,36 @@ textarea { min-height: 84px; resize: vertical; }
   .login-brand { padding: 24px 20px; }
   .login-panel { padding: 26px 18px 40px; }
   .kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+
+  /* --- Mobile overflow fixes ------------------------------------------ */
+  /* Kanban boards: single-lane vertical stack with its own horizontal scroll
+     fallback, instead of pushing the whole page wide. */
+  .kanban-board {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-x: visible;
+  }
+  .kanban-col { min-width: 0; width: 100%; }
+
+  /* Pages that stack filter rows with inline `display:flex` styles need wrap
+     and a floor of 0 so long selects/inputs can't force the page wider. */
+  .toolbar,
+  .tabs,
+  .hstack { flex-wrap: wrap; }
+  .toolbar > *, .hstack > * { min-width: 0; }
+
+  /* Inline-styled headers (Collections/Certificates page-heads) wrap and the
+     trailing button drops below the title instead of stretching the row. */
+  .page-head { flex-wrap: wrap; }
+  .page-head > * { min-width: 0; }
+
+  /* Date inputs + selects inside filter rows shrink to fit. */
+  select, input[type='date'] { max-width: 100%; }
+
+  /* Toasts take nearly the full width so long error text never overflows. */
+  .toasts { left: 12px; right: 12px; bottom: 84px; }
+  .toast { width: 100%; }
 }
 
 /* Only very narrow phones drop to a single KPI column — 2-up stays scannable */
@@ -1292,8 +1330,517 @@ kbd {
 }
 
 @media print {
-  .side, .top, .tabs, .btn, .toasts, .kbd-hint, .no-print { display: none !important; }
+  .side, .top, .tabs, .btn, .toasts, .kbd-hint, .no-print,
+  .ai-fab, .ai-panel { display: none !important; }
   .shell { display: block; } .main { display: block; }
   .body { padding: 0; max-width: none; }
   .card { break-inside: avoid; }
 }
+
+/* ---------- 20. Mira AI assistant ---------------------------------------- */
+/* The launcher is a direct child of `.shell`, which carries no transform
+   animation — so `position: fixed` resolves against the viewport here. */
+
+/* Toasts lift above the launcher so the two never stack on top of each other. */
+.toasts { bottom: 92px; }
+
+.ai-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 150;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 18px 12px 15px;
+  border: 1px solid var(--accent-hi);
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--sh-3);
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.ai-fab:hover { background: var(--accent-hi); transform: translateY(-2px); }
+.ai-fab:focus-visible { outline: 2px solid var(--accent-glow); outline-offset: 3px; }
+.ai-fab.on { padding: 12px; }
+
+.ai-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 86px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  width: min(392px, calc(100vw - 40px));
+  height: min(584px, calc(100vh - 140px));
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--sh-3);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.985);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+.ai-panel.open { opacity: 1; visibility: visible; transform: none; }
+
+/* Header */
+.ai-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 11px 14px;
+  background: var(--rail);
+  color: var(--rail-ink);
+}
+.ai-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: #fff;
+}
+.ai-head-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
+.ai-head-text b { font-size: 13.5px; }
+.ai-head-text span { font-size: 11px; color: var(--rail-mut); }
+.ai-head .icon-btn { color: var(--rail-mut); }
+.ai-head .icon-btn:hover { color: var(--rail-ink); background: rgba(255, 255, 255, 0.09); }
+
+/* Transcript */
+.ai-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface-2);
+}
+.ai-intro p { margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.ai-chips { display: flex; flex-direction: column; gap: 7px; }
+.ai-chip {
+  text-align: left;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ai-chip:hover { border-color: var(--accent-line); color: var(--accent-ink); }
+.ai-chip:focus-visible { outline: 2px solid var(--accent-glow); outline-offset: 1px; }
+
+.ai-msg {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ai-msg.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: var(--r-xs);
+}
+.ai-msg.assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-bottom-left-radius: var(--r-xs);
+}
+
+.ai-typing { display: inline-flex; align-items: center; gap: 4px; }
+.ai-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  animation: aiDot 1.1s infinite ease-in-out;
+}
+.ai-typing span:nth-child(2) { animation-delay: 0.16s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.32s; }
+@keyframes aiDot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+.ai-error {
+  align-self: stretch;
+  padding: 10px 12px;
+  border: 1px solid var(--bad-line);
+  border-radius: var(--r);
+  background: var(--bad-soft);
+  color: var(--bad);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.ai-error p { margin: 0 0 8px; }
+.ai-retry {
+  padding: 5px 11px;
+  border: 1px solid var(--bad-line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--bad);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Composer */
+.ai-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.ai-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 104px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: none;
+}
+.ai-input:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ai-input:disabled { opacity: 0.6; }
+.ai-send {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: none;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ai-send:hover:not(:disabled) { background: var(--accent-hi); }
+.ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.ai-note {
+  margin: 0;
+  padding: 0 12px calc(9px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+/* --- Phones: the panel becomes a full-screen sheet --- */
+@media (max-width: 640px) {
+  .ai-panel {
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    transform: translateY(100%);
+  }
+  .ai-panel.open { transform: none; }
+  /* The header's close button is the way out once the sheet is up */
+  .ai-fab.on { display: none; }
+  .ai-fab { right: 14px; bottom: 14px; padding: 14px; }
+  .ai-fab-text { display: none; }
+  .toasts { bottom: 84px; }
+}
+
+
+/* ---------- 24. Toast variants (success / error) ------------------------- */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 420px;
+  animation: riseIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.toast-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+}
+.toast-ok .toast-icon { background: var(--accent-glow, #17a493); }
+.toast-err {
+  background: var(--bad, #b91c1c);
+  color: #fff;
+}
+.toast-err .toast-icon { background: rgba(255, 255, 255, 0.24); }
+
+/* ---------- 25. Inline field errors -------------------------------------- */
+.field-err {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bad, #b91c1c);
+}
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--bad, #b91c1c) !important;
+}
+input:disabled, select:disabled, textarea:disabled { opacity: 0.65; cursor: not-allowed; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------- 26. Custom 404 ------------------------------------------------ */
+.nf {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--paper);
+}
+.nf-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(72px, 18vw, 130px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 4px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+.nf h1 { margin: 0; font-size: clamp(20px, 4.5vw, 28px); }
+.nf-sub { margin: 0 0 8px; max-width: 46ch; color: var(--muted); font-size: 14px; }
+.nf-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* ---------- 27. Cold Mail (outreach) -------------------------------------
+   Deliberately plain. This is an operations console: dense tables, one accent
+   colour, native controls. Colour is used only to carry status meaning. */
+
+/* --- Status chips ---
+   Outreach has its own vocabulary, so it gets its own set rather than
+   borrowing pipeline chips that mean something else. */
+.chip.DRAFT, .chip.PAUSED, .chip.SKIPPED {
+  background: var(--neutral-soft); border-color: var(--neutral-soft); color: var(--neutral-ink);
+}
+.chip.RUNNING, .chip.QUEUED, .chip.SENDING, .chip.RETRY, .chip.SCHEDULED {
+  background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn);
+}
+.chip.SENT, .chip.REPLIED, .chip.OPEN, .chip.COMPLETED {
+  background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok);
+}
+.chip.FAILED, .chip.BOUNCED {
+  background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad);
+}
+.chip.UNSUBSCRIBED {
+  background: var(--info-soft); border-color: var(--info-line); color: var(--info);
+}
+
+/* --- Connection indicator --- */
+.cm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.cm-status i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.cm-status.on i { background: var(--ok); }
+.cm-status.warn i { background: var(--warn); }
+.cm-status.off { color: var(--bad); }
+.cm-status.off i { background: var(--bad); }
+.cm-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+/* --- Section headers inside a card --- */
+.cm-h {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cm-h h4 { margin: 0; }
+.cm-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-2); }
+.cm-block-flat { min-width: 0; }
+.cm-detail { margin-top: 18px; padding: 18px 20px; }
+
+/* --- Notices --- */
+.cm-notice {
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.cm-notice > b { display: block; font-size: 13.5px; font-weight: 650; color: var(--ink); }
+.cm-notice p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+.cm-notice.warn { border-color: var(--warn-line); background: var(--warn-soft); }
+.cm-notice.warn > b { color: var(--warn); }
+.cm-notice code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.cm-code {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink);
+  overflow-x: auto;
+  white-space: pre;
+}
+.cm-note { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.cm-note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* --- Form pieces --- */
+.cm-field { display: grid; gap: 5px; min-width: 0; }
+.cm-field > span:first-child {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cm-field.wide { grid-column: 1 / -1; }
+.cm-field > small { font-size: 11.5px; color: var(--muted); }
+.cm-field input, .cm-field select, .cm-field textarea { width: 100%; min-width: 0; }
+
+.cm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-2);
+  cursor: pointer;
+}
+.cm-check:last-of-type { border-bottom: 0; }
+.cm-check input { flex: none; width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--accent); cursor: pointer; }
+.cm-check > span { display: grid; gap: 2px; min-width: 0; }
+.cm-check b { font-size: 13.5px; font-weight: 650; }
+.cm-check small { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.cm-check.off { opacity: 0.6; }
+.cm-check.off input { cursor: not-allowed; }
+
+.cm-textarea {
+  width: 100%;
+  margin: 9px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  resize: vertical;
+}
+.cm-textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+.cm-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cm-inline-top { margin-top: 10px; }
+.cm-inline .search-input { max-width: 210px; }
+.cm-num { flex: 0 0 84px; max-width: 84px; }
+.cm-file { position: relative; overflow: hidden; }
+.cm-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* --- Table helpers --- */
+.tscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tscroll table { min-width: 640px; }
+tr.cm-row-on > td { background: var(--accent-soft); }
+.cm-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.cm-nowrap { white-space: nowrap; }
+.cm-cell-sub { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.cm-err-cell { max-width: 210px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.cm-subject-cell { max-width: 330px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-link { color: var(--accent); font-weight: 600; cursor: pointer; }
+.cm-link:hover { text-decoration: underline; }
+
+/* --- Campaign stat list: a denser two-column take on .kv --- */
+.kv.cm-stats { grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 8px 20px; margin: 0 0 4px; }
+.kv.cm-stats > div { grid-template-columns: 94px minmax(0, 1fr); gap: 8px; }
+
+/* --- Template preview --- */
+.cm-tpl-body {
+  max-height: 240px;
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.cm-preview-frame {
+  display: block;
+  width: 100%;
+  height: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: #fff;
+}
+
+/* --- Responsive --- */
+@media (max-width: 880px) {
+  .kv.cm-stats { grid-template-columns: minmax(0, 1fr); }
+  .cm-subject-cell { max-width: 200px; }
+}
+@media (max-width: 640px) {
+  .cm-detail { padding: 14px 15px; }
+  .cm-inline { width: 100%; }
+  .cm-inline > .search-input,
+  .cm-inline > .select-sm { flex: 1 1 100%; max-width: none; min-width: 0; }
+  .cm-num { flex: 1 1 100%; max-width: none; }
+  .cm-inline > .btn { flex: 1 1 auto; }
+  .cm-actions { width: 100%; }
+  .cm-preview-frame { height: 300px; }
+  .tscroll table { min-width: 580px; }
+}
+

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { api, inr } from '../api';
+import { api, inr, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 function filterInstitutionLeaves(leaves, customerId) {
@@ -45,6 +45,7 @@ export function Leads() {
   const [show, setShow] = useState(false);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = () =>
     api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}`).then(setRows).catch((e) => setMsg(e.message));
@@ -52,15 +53,20 @@ export function Leads() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     setMsg('');
     try {
       await api.createLead(f);
       setShow(false);
       setF({});
-      setMsg('✓ Lead created successfully');
+      toast('Lead created successfully');
       load();
     } catch (ex) {
+      toastError(ex.message);
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -102,8 +108,8 @@ export function Leads() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && load()}
           />
-          <button className="btn ghost" onClick={load}>Filter</button>
-          <button className="btn" onClick={() => setShow(true)}>+ New Lead</button>
+          <button type="button" className="btn ghost" onClick={load}>Filter</button>
+          <button type="button" className="btn" onClick={() => setShow(true)}>+ New Lead</button>
         </div>
       </div>
 
@@ -152,7 +158,7 @@ export function Leads() {
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between', alignItems: 'center' }}>
                           <Link to={'/leads/' + l.id} className="btn ghost sm">Details →</Link>
                           {nextStage && (
-                            <button className="btn sm" onClick={() => advanceStatus(l.id, nextStage)}>
+                            <button type="button" className="btn sm" onClick={() => advanceStatus(l.id, nextStage)}>
                               Move to {nextStage} →
                             </button>
                           )}
@@ -216,7 +222,7 @@ export function Leads() {
               <input placeholder="Source" value={f.source || ''} onChange={(e) => setF({ ...f, source: e.target.value })} />
               <input placeholder="Owner" value={f.owner || ''} onChange={(e) => setF({ ...f, owner: e.target.value })} />
               <span>
-                <button className="btn" type="submit">Create Lead</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create Lead'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
               </span>
             </form>
@@ -312,11 +318,11 @@ export function LeadDetail() {
 
           <div className="hstack">
             {['CONTACTED', 'QUALIFIED', 'PROPOSAL'].map((s) => (
-              <button key={s} className="btn ghost" onClick={() => qualify(s)}>{s}</button>
+              <button type="button" key={s} className="btn ghost" onClick={() => qualify(s)}>{s}</button>
             ))}
           </div>
           <div className="mt">
-            <button className="btn" onClick={convert} disabled={!['QUALIFIED', 'PROPOSAL'].includes(l.status)}>
+            <button type="button" className="btn" onClick={convert} disabled={!['QUALIFIED', 'PROPOSAL'].includes(l.status)}>
               Convert to Customer
             </button>
           </div>
@@ -443,7 +449,7 @@ export function Customer360({ fixedId }) {
 
       <div className="tabs">
         {TABS.map((t) => (
-          <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
+          <button type="button" key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
 

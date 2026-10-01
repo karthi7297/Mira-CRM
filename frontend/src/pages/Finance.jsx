@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, inr, downloadCSV, toast } from '../api';
+import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 export function Quotations() {
@@ -11,6 +11,7 @@ export function Quotations() {
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
@@ -23,6 +24,11 @@ export function Quotations() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!f.customer_id) { setMsg('Select a client institution'); return; }
+    if (!String(f.program || '').trim()) { setMsg('Program description is required'); return; }
+    if (!(+f.rate > 0)) { setMsg('Rate must be greater than 0'); return; }
+    setBusy(true);
     try {
       await api.createQuotation({
         customer_id: f.customer_id,
@@ -32,9 +38,10 @@ export function Quotations() {
       });
       setShow(false);
       setF({});
-      toast('✓ Quotation created successfully');
+      toast('Quotation created successfully');
       load();
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const convert = async (qid) => {
@@ -86,7 +93,7 @@ export function Quotations() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {rows.length > 0 && (
-            <button
+            <button type="button"
               className="btn ghost no-print"
               onClick={() =>
                 downloadCSV(
@@ -99,7 +106,7 @@ export function Quotations() {
             </button>
           )}
           {user?.role === 'organization' && (
-            <button className="btn" onClick={() => setShow(true)}>+ Create Quotation</button>
+            <button type="button" className="btn" onClick={() => setShow(true)}>+ Create Quotation</button>
           )}
         </div>
       </div>
@@ -132,7 +139,7 @@ export function Quotations() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'].map((tab) => (
-            <button
+            <button type="button"
               key={tab}
               className={`btn sm ${filter === tab ? '' : 'ghost'}`}
               onClick={() => setFilter(tab)}
@@ -162,14 +169,14 @@ export function Quotations() {
               <td><span className={'chip ' + q.status}>{q.status}</span></td>
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn sm ghost" onClick={() => setViewQuo(q)}>View Details</button>
+                  <button type="button" className="btn sm ghost" onClick={() => setViewQuo(q)}>View Details</button>
                   {user?.role === 'organization' && q.status !== 'ACCEPTED' && (
-                    <button className="btn sm ghost" onClick={() => convert(q.id)}>
+                    <button type="button" className="btn sm ghost" onClick={() => convert(q.id)}>
                       Convert to Invoice →
                     </button>
                   )}
                   {user?.role === 'institution' && q.status === 'SENT' && (
-                    <button className="btn sm" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(q.id, 'ACCEPTED')}>
+                    <button type="button" className="btn sm" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(q.id, 'ACCEPTED')}>
                       ✓ Accept
                     </button>
                   )}
@@ -207,7 +214,7 @@ export function Quotations() {
               <label style={{ fontSize: 13, fontWeight: 600 }}>Discount (₹)</label>
               <input placeholder="Optional discount" type="number" value={f.discount || ''} onChange={(e) => setF({ ...f, discount: e.target.value })} />
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Save Quotation</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Quotation'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
               </div>
             </form>
@@ -239,20 +246,20 @@ export function Quotations() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
-              <button className="btn ghost" onClick={() => window.print()}>Print Quotation</button>
+              <button type="button" className="btn ghost" onClick={() => window.print()}>Print Quotation</button>
               <div style={{ display: 'flex', gap: 8 }}>
                 {user?.role === 'organization' && viewQuo.status === 'DRAFT' && (
-                  <button className="btn ghost" onClick={() => updateStatus(viewQuo.id, 'SENT')}>Mark as Sent</button>
+                  <button type="button" className="btn ghost" onClick={() => updateStatus(viewQuo.id, 'SENT')}>Mark as Sent</button>
                 )}
                 {user?.role === 'organization' && viewQuo.status !== 'ACCEPTED' && (
-                  <button className="btn" onClick={() => convert(viewQuo.id)}>Convert to Invoice →</button>
+                  <button type="button" className="btn" onClick={() => convert(viewQuo.id)}>Convert to Invoice →</button>
                 )}
                 {user?.role === 'institution' && viewQuo.status === 'SENT' && (
                   <>
-                    <button className="btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(viewQuo.id, 'ACCEPTED')}>
+                    <button type="button" className="btn" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(viewQuo.id, 'ACCEPTED')}>
                       ✓ Accept Proposal
                     </button>
-                    <button className="btn ghost" style={{ color: '#ef4444' }} onClick={() => updateStatus(viewQuo.id, 'REJECTED')}>
+                    <button type="button" className="btn ghost" style={{ color: '#ef4444' }} onClick={() => updateStatus(viewQuo.id, 'REJECTED')}>
                       Decline
                     </button>
                   </>
@@ -273,6 +280,7 @@ export function Invoices() {
   const [show, setShow] = useState(false);
   const [payModal, setPayModal] = useState(null);
   const [payForm, setPayForm] = useState({ method: 'Bank Transfer' });
+  const [busy, setBusy] = useState(false);
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
@@ -288,6 +296,11 @@ export function Invoices() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!f.customer_id) { setMsg('Select a client institution'); return; }
+    if (!String(f.program || '').trim()) { setMsg('Program description is required'); return; }
+    if (!(+f.rate > 0)) { setMsg('Rate must be greater than 0'); return; }
+    setBusy(true);
     try {
       await api.createInvoice({
         customer_id: f.customer_id,
@@ -298,13 +311,18 @@ export function Invoices() {
       });
       setShow(false);
       setF({});
-      toast('✓ Invoice created successfully');
+      toast('Invoice created successfully');
       load();
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const handlePay = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!(+payForm.amount > 0)) { setMsg('Payment amount must be greater than 0'); return; }
+    if (+payForm.amount > payModal.outstanding) { setMsg('Payment cannot exceed the outstanding balance'); return; }
+    setBusy(true);
     try {
       const res = await api.pay({
         invoice_id: payModal.id,
@@ -314,12 +332,14 @@ export function Invoices() {
         reference: payForm.reference || '',
         notes: payForm.notes || '',
       });
-      toast(`✓ Payment of ${inr(payForm.amount)} recorded!`);
+      toast(`Payment of ${inr(payForm.amount)} recorded!`);
       setPayModal(null);
       setPayForm({ method: 'Bank Transfer' });
       load();
     } catch (ex) {
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -350,7 +370,7 @@ export function Invoices() {
         </div>
         <span style={{ display: 'flex', gap: 8 }}>
           {rows.length > 0 && (
-            <button
+            <button type="button"
               className="btn ghost no-print"
               onClick={() =>
                 downloadCSV(
@@ -371,7 +391,7 @@ export function Invoices() {
             </button>
           )}
           {user?.role === 'organization' && (
-            <button className="btn" onClick={() => setShow(true)}>+ Create Invoice</button>
+            <button type="button" className="btn" onClick={() => setShow(true)}>+ Create Invoice</button>
           )}
         </span>
       </div>
@@ -404,7 +424,7 @@ export function Invoices() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'UNPAID', 'PARTIALLY_PAID', 'PAID', 'OVERDUE'].map((tab) => (
-            <button
+            <button type="button"
               key={tab}
               className={`btn sm ${filter === tab ? '' : 'ghost'}`}
               onClick={() => setFilter(tab)}
@@ -449,7 +469,7 @@ export function Invoices() {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <Link to={'/invoices/' + i.id} className="btn sm ghost">Open</Link>
                   {i.outstanding > 0 && (
-                    <button
+                    <button type="button"
                       className="btn sm"
                       style={{ background: '#2563eb', borderColor: '#2563eb' }}
                       onClick={() => {
@@ -502,7 +522,7 @@ export function Invoices() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Issue Invoice</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Issuing…' : 'Issue Invoice'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
               </div>
             </form>
@@ -547,7 +567,7 @@ export function Invoices() {
                 onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
               />
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Submit Payment</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit Payment'}</button>
                 <button type="button" className="btn ghost" onClick={() => setPayModal(null)}>Cancel</button>
               </div>
             </form>
@@ -564,21 +584,27 @@ export function InvoiceDetail() {
   const [msg, setMsg] = useState('');
   const [pay, setPay] = useState({ method: 'Bank Transfer' });
   const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const load = () => api.invoice(id).then(setInv).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, [id]);
 
   const record = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!(+pay.amount > 0)) { setMsg('Payment amount must be greater than 0'); return; }
+    if (+pay.amount > inv.outstanding) { setMsg('Payment cannot exceed the outstanding balance'); return; }
+    setBusy(true);
     setMsg('');
     try {
       const r = await api.pay({ invoice_id: id, ...pay, amount: +pay.amount });
       setShow(false);
       setPay({ method: 'Bank Transfer' });
-      toast('✓ Payment successfully recorded');
+      toast('Payment successfully recorded');
       setMsg(`Payment recorded. Outstanding updated: ${inr(r.outstanding)}`);
       load();
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   if (!inv) return <div className={msg ? 'err' : 'loading'}>{msg || 'Loading invoice…'}</div>;
@@ -623,9 +649,9 @@ export function InvoiceDetail() {
         </div>
 
         <div className="mt no-print" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn ghost" onClick={() => window.print()}>Print Receipt</button>
+          <button type="button" className="btn ghost" onClick={() => window.print()}>Print Receipt</button>
           {inv.outstanding > 0 && (
-            <button className="btn" onClick={() => { setPay({ method: 'Bank Transfer', amount: inv.outstanding }); setShow(true); }}>
+            <button type="button" className="btn" onClick={() => { setPay({ method: 'Bank Transfer', amount: inv.outstanding }); setShow(true); }}>
               Record Payment
             </button>
           )}
@@ -672,7 +698,7 @@ export function InvoiceDetail() {
               <label style={{ fontSize: 13, fontWeight: 600 }}>Reference</label>
               <input placeholder="NEFT / UTR / Cheque No" value={pay.reference || ''} onChange={(e) => setPay({ ...pay, reference: e.target.value })} />
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Record Payment</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Recording…' : 'Record Payment'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
               </div>
             </form>
@@ -715,7 +741,7 @@ export function Payments() {
           <p className="sub">Complete audit log of cash, bank, and online payments received from institutions.</p>
         </div>
         {rows.length > 0 && (
-          <button
+          <button type="button"
             className="btn ghost no-print"
             onClick={() =>
               downloadCSV(
@@ -755,7 +781,7 @@ export function Payments() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'Bank Transfer', 'UPI', 'Cheque', 'Cash'].map((m) => (
-            <button
+            <button type="button"
               key={m}
               className={`btn sm ${methodFilter === m ? '' : 'ghost'}`}
               onClick={() => setMethodFilter(m)}
@@ -797,7 +823,7 @@ export function Payments() {
               <td>{p.date}</td>
               <td className="meta">{p.reference || '—'}</td>
               <td>
-                <button className="btn sm ghost" onClick={() => setSelectedReceipt(p)}>Receipt</button>
+                <button type="button" className="btn sm ghost" onClick={() => setSelectedReceipt(p)}>Receipt</button>
               </td>
             </tr>
           ))}
@@ -835,8 +861,8 @@ export function Payments() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
-              <button className="btn ghost" onClick={() => window.print()}>Print Voucher</button>
-              <button className="btn" onClick={() => setSelectedReceipt(null)}>Close</button>
+              <button type="button" className="btn ghost" onClick={() => window.print()}>Print Voucher</button>
+              <button type="button" className="btn" onClick={() => setSelectedReceipt(null)}>Close</button>
             </div>
           </div>
         </div>
@@ -850,6 +876,7 @@ export function Expenses() {
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({ category: 'Trainer' });
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [catFilter, setCatFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
@@ -858,12 +885,17 @@ export function Expenses() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!(+f.amount > 0)) { setMsg('Amount must be greater than 0'); return; }
+    if (!String(f.vendor || '').trim()) { setMsg('Vendor / payee is required'); return; }
+    setBusy(true);
     try {
       await api.createExpense(f);
       setF({ category: 'Trainer' });
-      toast('✓ Expense recorded');
+      toast('Expense recorded');
       load();
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const updateStatus = async (id, action) => {
@@ -930,15 +962,14 @@ export function Expenses() {
           </select>
           <input placeholder="Vendor / Payee" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} />
           <input placeholder="Description" value={f.description || ''} onChange={(e) => setF({ ...f, description: e.target.value })} />
-          <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-          <button className="btn">+ Add Expense</button>
+          <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />                <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : '+ Add Expense'}</button>
         </form>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {['ALL', 'Trainer', 'Venue', 'Operations', 'Marketing', 'Materials', 'Travel'].map((cat) => (
-            <button
+            <button type="button"
               key={cat}
               className={`btn sm ${catFilter === cat ? '' : 'ghost'}`}
               onClick={() => setCatFilter(cat)}
@@ -949,7 +980,7 @@ export function Expenses() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'PENDING', 'APPROVED', 'PAID'].map((st) => (
-            <button
+            <button type="button"
               key={st}
               className={`btn sm ${statusFilter === st ? '' : 'ghost'}`}
               onClick={() => setStatusFilter(st)}
@@ -988,16 +1019,16 @@ export function Expenses() {
               <td>
                 {user?.role === 'organization' && x.status === 'PENDING' && (
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn sm" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(x.id, 'approve')}>
+                    <button type="button" className="btn sm" style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => updateStatus(x.id, 'approve')}>
                       Approve
                     </button>
-                    <button className="btn sm ghost" onClick={() => updateStatus(x.id, 'pay')}>
+                    <button type="button" className="btn sm ghost" onClick={() => updateStatus(x.id, 'pay')}>
                       Mark Paid
                     </button>
                   </div>
                 )}
                 {user?.role === 'organization' && x.status === 'APPROVED' && (
-                  <button className="btn sm ghost" onClick={() => updateStatus(x.id, 'pay')}>
+                  <button type="button" className="btn sm ghost" onClick={() => updateStatus(x.id, 'pay')}>
                     Mark Paid
                   </button>
                 )}
@@ -1016,20 +1047,25 @@ export function TrainerFinance() {
   const [d, setD] = useState(null);
   const [f, setF] = useState({ category: 'Travel' });
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = () => api.trainerFinance().then(setD).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
 
   const claim = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!(+f.amount > 0)) { setMsg('Claim amount must be greater than 0'); return; }
+    setBusy(true);
     setMsg('');
     try {
       await api.createExpense(f);
       setF({ category: 'Travel' });
-      toast('✓ Expense claim filed (PENDING approval)');
+      toast('Expense claim filed (pending approval)');
       setMsg('✓ Claim filed (PENDING approval)');
       load();
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   if (!d) return <div className={msg ? 'err' : 'loading'}>{msg || 'Loading my finance…'}</div>;
@@ -1072,7 +1108,7 @@ export function TrainerFinance() {
             <input placeholder="Vendor" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} />
             <input placeholder="Description" value={f.description || ''} onChange={(e) => setF({ ...f, description: e.target.value })} />
             <input required placeholder="Amount" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-            <span><button className="btn">File Claim</button></span>
+            <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Filing…' : 'File Claim'}</button></span>
           </form>
         </div>
       </div>
@@ -1117,7 +1153,7 @@ export function Reports() {
           <h2>Executive Reports & Analytics</h2>
           <p className="sub">Platform-wide revenue, collections, student academic excellence, and margin projections.</p>
         </div>
-        <button className="btn ghost no-print" onClick={() => window.print()}>Print Report</button>
+        <button type="button" className="btn ghost no-print" onClick={() => window.print()}>Print Report</button>
       </div>
 
       <div className="cards">

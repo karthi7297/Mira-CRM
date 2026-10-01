@@ -11,6 +11,7 @@ export const NAV = [
   { to: '/', label: 'Dashboard', roles: ['organization', 'institution', 'trainer'] },
   { to: '/learning', label: 'My Learning', roles: ['student'] },
   { to: '/leads', label: 'Leads', roles: ['organization'] },
+  { to: '/cold-mail', label: 'Cold Mail', roles: ['organization'] },
   { to: '/customers', label: 'Institutions', roles: ['organization'] },
   { to: '/college', label: 'My College', roles: ['institution'] },
   { to: '/programs', label: 'Programs', roles: ['organization', 'trainer'] },

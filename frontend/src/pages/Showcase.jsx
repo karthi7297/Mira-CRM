@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, inr, downloadCSV, toast } from '../api';
+import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 // FLOW X: risk-ranked collections queue (rule-based prioritization, not ML)
 export function Collections() {
-  const [rows, setRows] = useState([]); const [msg, setMsg] = useState('');
-  useEffect(() => { api.collections().then(setRows).catch(e => setMsg(e.message)); }, []);
+  const [rows, setRows] = useState([]); const [msg, setMsg] = useState(''); const [loading, setLoading] = useState(true);
+  useEffect(() => { api.collections().then(setRows).catch(e => setMsg(e.message)).finally(() => setLoading(false)); }, []);
+  if (loading) return <div className="loading">Loading collections queue…</div>;
   if (msg) return <div className="err">{msg}</div>;
   const totals = rows.reduce((x, r) => ({ n: x.n + 1, amt: x.amt + Number(r.outstanding || 0) }), { n: 0, amt: 0 });
   return (
@@ -14,7 +15,7 @@ export function Collections() {
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>Collections Queue</h2>
         <span style={{ marginLeft: 12, fontSize: 13, color: '#64748b' }}>{totals.n} open · {inr(totals.amt)} at risk-ranked priority</span>
-        <button className="btn ghost no-print" style={{ marginLeft: 'auto' }} onClick={() => downloadCSV('collections.csv', rows.map(r => ({ invoice: r.id, customer: r.customer_name, outstanding: r.outstanding, risk: r.risk, overdue_days: r.overdueDays, reasons: r.reasons.join('; ') })))}>Export CSV</button>
+        <button type="button" className="btn ghost no-print" style={{ marginLeft: 'auto' }} onClick={() => downloadCSV('collections.csv', rows.map(r => ({ invoice: r.id, customer: r.customer_name, outstanding: r.outstanding, risk: r.risk, overdue_days: r.overdueDays, reasons: r.reasons.join('; ') })))}>Export CSV</button>
       </div>
       <table style={{ marginTop: 12 }}><thead><tr><th>Priority</th><th>Invoice</th><th>Customer</th><th>Outstanding</th><th>Due</th><th>Why</th><th></th></tr></thead>
         <tbody>{rows.map(r => <tr key={r.id}>
@@ -31,9 +32,9 @@ export function Collections() {
 export function Certificates() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]); const [batches, setBatches] = useState([]);
-  const [f, setF] = useState({}); const [msg, setMsg] = useState('');
+  const [f, setF] = useState({}); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api.certificates().then(setRows).catch(e => setMsg(e.message));
+    api.certificates().then(setRows).catch(e => setMsg(e.message)).finally(() => setLoading(false));
     api.batches().then(setBatches).catch(() => {});
   }, []);
   const [studs, setStuds] = useState([]);
@@ -43,11 +44,16 @@ export function Certificates() {
   };
   const issue = async (e) => {
     e.preventDefault(); setMsg('');
+    if (busy) return;
+    if (!f.batch_id) { setMsg('Select a batch first'); return; }
+    if (!f.student_id) { setMsg('Select a student to issue the certificate for'); return; }
+    setBusy(true);
     try {
       const c = await api.issueCertificate({ student_id: f.student_id, batch_id: f.batch_id });
-      toast(`✓ Certificate ${c.certificate_no} issued`);
+      toast(`Certificate ${c.certificate_no} issued`);
       api.certificates().then(setRows);
     } catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const copyVerify = (code) => {
@@ -67,8 +73,9 @@ export function Certificates() {
         <form onSubmit={issue} className="form no-print" style={{ maxWidth: 720, marginTop: 12 }}>
           <select required value={f.batch_id || ''} onChange={e => pickBatch(e.target.value)}><option value="">Batch...</option>{batches.map(b => <option key={b.id} value={b.id}>{b.id}</option>)}</select>
           <select required value={f.student_id || ''} onChange={e => setF({ ...f, student_id: e.target.value })}><option value="">Student...</option>{studs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-          <span><button className="btn">Issue (needs ≥75% attendance)</button></span>
+          <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Issuing…' : 'Issue (needs ≥75% attendance)'}</button></span>
         </form>)}
+      {loading && <div className="loading">Loading certificates…</div>}
       <div className="cards" style={{ marginTop: 16 }}>{rows.map(c => (
         <div key={c.id} className="card" style={{ borderTop: '4px solid #16a34a' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -84,8 +91,8 @@ export function Certificates() {
           </p>
           <small style={{ color: '#94a3b8' }}>Issued {String(c.issued_on || '').slice(0, 10)}</small>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }} className="no-print">
-            <button className="btn ghost sm" onClick={() => copyVerify(c.certificate_no)}>Copy Code</button>
-            <button className="btn ghost sm" onClick={() => window.print()}>Print</button>
+            <button type="button" className="btn ghost sm" onClick={() => copyVerify(c.certificate_no)}>Copy Code</button>
+            <button type="button" className="btn ghost sm" onClick={() => window.print()}>Print</button>
           </div>
         </div>))}</div>
       {rows.length === 0 && <p className="empty" style={{ marginTop: 16 }}>No certificates issued yet. Pick an eligible student (≥75% attendance) to issue one above.</p>}

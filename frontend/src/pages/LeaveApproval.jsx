@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, toast } from '../api';
+import { api, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 export default function LeaveApproval() {
@@ -9,6 +9,7 @@ export default function LeaveApproval() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [showApply, setShowApply] = useState(false);
   const [f, setF] = useState({
     trainer_id: 'TR-001',
@@ -36,20 +37,30 @@ export default function LeaveApproval() {
   useEffect(() => { load(); }, []);
 
   const handleAction = async (id, action) => {
+    if (busy) return;
+    setBusy(true);
     try {
       await api.updateLeaveRequest(id, action);
-      toast(`✓ Leave request ${id} ${action === 'approve' ? 'Approved' : 'Rejected'}`);
+      toast(`Leave request ${id} ${action === 'approve' ? 'approved' : 'rejected'}`);
       load();
     } catch (ex) {
+      toastError(ex.message);
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
   const submitLeave = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!String(f.reason || '').trim()) { setMsg('Please give a reason for the leave'); return; }
+    if (f.to_date < f.from_date) { setMsg('End date cannot be before the start date'); return; }
+    if (!(+f.days > 0)) { setMsg('Number of days must be greater than 0'); return; }
+    setBusy(true);
     try {
       await api.createLeaveRequest(f);
-      toast('✓ Leave application submitted successfully');
+      toast('Leave application submitted successfully');
       setShowApply(false);
       setF({
         trainer_id: 'TR-001',
@@ -63,6 +74,8 @@ export default function LeaveApproval() {
       load();
     } catch (ex) {
       setMsg(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -92,7 +105,7 @@ export default function LeaveApproval() {
           <p className="sub">Review, approve or decline leave applications submitted by trainers and faculty.</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn ghost" onClick={() => setShowApply(true)}>+ Simulate Leave Application</button>
+          <button type="button" className="btn ghost" onClick={() => setShowApply(true)}>+ Simulate Leave Application</button>
         </div>
       </div>
 
@@ -124,7 +137,7 @@ export default function LeaveApproval() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map((tab) => (
-            <button
+            <button type="button"
               key={tab}
               className={`btn sm ${filter === tab ? '' : 'ghost'}`}
               onClick={() => setFilter(tab)}
@@ -191,14 +204,14 @@ export default function LeaveApproval() {
                 <td>
                   {lr.status === 'PENDING' ? (
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button
+                      <button type="button"
                         className="btn sm"
                         style={{ background: '#10b981', borderColor: '#10b981' }}
                         onClick={() => handleAction(lr.id, 'approve')}
                       >
                         ✓ Approve
                       </button>
-                      <button
+                      <button type="button"
                         className="btn sm ghost"
                         style={{ color: '#ef4444', borderColor: '#fca5a5' }}
                         onClick={() => handleAction(lr.id, 'reject')}
@@ -289,7 +302,7 @@ export default function LeaveApproval() {
               />
 
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <button className="btn">Submit Request</button>
+                <button className="btn" type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit Request'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShowApply(false)}>Cancel</button>
               </div>
             </form>

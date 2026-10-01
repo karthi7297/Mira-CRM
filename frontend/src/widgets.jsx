@@ -3,16 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { api, registerToast } from './api';
 import { useAuth } from './auth';
 
+/* Toasts carry a kind: 'success' (default) or 'error'. Error toasts stick
+   around longer — people need time to read what went wrong. */
 export function Toaster() {
   const [items, setItems] = useState([]);
   useEffect(() => {
-    registerToast((msg) => {
+    registerToast((msg, kind = 'success') => {
       const id = Date.now() + Math.random();
-      setItems(x => [...x, { id, msg }]);
-      setTimeout(() => setItems(x => x.filter(i => i.id !== id)), 3200);
+      setItems((x) => [...x, { id, msg, kind }]);
+      setTimeout(() => setItems((x) => x.filter((i) => i.id !== id)), kind === 'error' ? 6000 : 3200);
     });
   }, []);
-  return <div className="toasts">{items.map(i => <div key={i.id} className="toast">{i.msg}</div>)}</div>;
+  return (
+    <div className="toasts" role="status" aria-live="polite">
+      {items.map((i) => (
+        <div key={i.id} className={'toast ' + (i.kind === 'error' ? 'toast-err' : 'toast-ok')}>
+          <span className="toast-icon" aria-hidden="true">{i.kind === 'error' ? '✕' : '✓'}</span>
+          {i.msg}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CommandPalette() {

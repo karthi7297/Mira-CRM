@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, inr } from '../api';
+import { api, inr, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 
 const TABS = ['Overview', 'Performance', 'Material', 'Certificates', 'Interests', 'Fee'];
@@ -13,6 +13,7 @@ export default function MyLearning() {
   const [ints, setInts] = useState([]);
   const [certs, setCerts] = useState([]);
   const [share, setShare] = useState('');
+  const [busy, setBusy] = useState(false);
   const { user } = useAuth();
 
   const load = () => {
@@ -25,14 +26,19 @@ export default function MyLearning() {
 
   const send = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!share.trim()) { setMsg('Write something to share first'); return; }
+    setBusy(true);
     setMsg('');
     try {
       await api.shareInterest({ body: share });
       setShare('');
-      setMsg('✓ Shared — visible only to your trainers');
+      toast('Shared — visible only to your trainers');
       load();
     } catch (ex) {
-      setMsg(ex.message);
+      toastError(ex.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -50,11 +56,11 @@ export default function MyLearning() {
         </div>
       </div>
 
-      {msg && <div className="okmsg">{msg}</div>}
+      {msg && <div className="err">{msg}</div>}
 
       <div className="tabs">
         {TABS.map((t) => (
-          <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
+          <button type="button" key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
 
@@ -159,7 +165,7 @@ export default function MyLearning() {
                   Verification Code: <b>{c.certificate_no}</b>
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }} className="no-print">
-                  <button className="btn ghost" onClick={() => window.print()}>Print Certificate</button>
+                  <button type="button" className="btn ghost" onClick={() => window.print()}>Print Certificate</button>
                   <a href={`/verify`} target="_blank" rel="noreferrer" className="btn" style={{ textDecoration: 'none' }}>
                     Verify Credential →
                   </a>
@@ -204,7 +210,7 @@ export default function MyLearning() {
                 onChange={(e) => setShare(e.target.value)}
                 style={{ flex: '1 1 220px' }}
               />
-              <button className="btn">Share</button>
+              <button className="btn" type="submit" disabled={busy}>{busy ? 'Sharing…' : 'Share'}</button>
             </form>
           </div>
 
