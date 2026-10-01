@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { printCertificate } from '../report';
 import { useAuth } from '../auth';
+import { check, ok, req, Ferr } from '../validate';
 
 // FLOW X: risk-ranked collections queue (rule-based prioritization, not ML)
 export function Collections() {
@@ -34,6 +35,7 @@ export function Certificates() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]); const [batches, setBatches] = useState([]);
   const [f, setF] = useState({}); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
+  const [fe, setFe] = useState({});
   useEffect(() => {
     api.certificates().then(setRows).catch(e => setMsg(e.message)).finally(() => setLoading(false));
     api.batches().then(setBatches).catch(() => {});
@@ -45,6 +47,12 @@ export function Certificates() {
   };
   const issue = async (e) => {
     e.preventDefault(); setMsg('');
+    const errs = check({
+      batch_id: [req('Batch')],
+      student_id: [req('Student')],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!f.batch_id) { setMsg('Select a batch first'); return; }
     if (!f.student_id) { setMsg('Select a student to issue the certificate for'); return; }
@@ -72,8 +80,14 @@ export function Certificates() {
       {msg && <div className="err" style={{ marginTop: 10 }}>{msg}</div>}
       {user?.role === 'organization' && (
         <form onSubmit={issue} className="form no-print" style={{ maxWidth: 720, marginTop: 12 }}>
-          <select required value={f.batch_id || ''} onChange={e => pickBatch(e.target.value)}><option value="">Batch...</option>{batches.map(b => <option key={b.id} value={b.id}>{b.id}</option>)}</select>
-          <select required value={f.student_id || ''} onChange={e => setF({ ...f, student_id: e.target.value })}><option value="">Student...</option>{studs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+          <div>
+            <select required value={f.batch_id || ''} onChange={e => pickBatch(e.target.value)} aria-invalid={!!fe.batch_id}><option value="">Batch...</option>{batches.map(b => <option key={b.id} value={b.id}>{b.id}</option>)}</select>
+            <Ferr fe={fe} name="batch_id" />
+          </div>
+          <div>
+            <select required value={f.student_id || ''} onChange={e => setF({ ...f, student_id: e.target.value })} aria-invalid={!!fe.student_id}><option value="">Student...</option>{studs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <Ferr fe={fe} name="student_id" />
+          </div>
           <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Issuing…' : 'Issue (needs ≥75% attendance)'}</button></span>
         </form>)}
       {loading && <div className="loading">Loading certificates…</div>}

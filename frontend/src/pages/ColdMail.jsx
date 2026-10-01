@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, downloadCSV, toast, toastError } from '../api';
+import { confirmDialog } from '../Confirm';
+import { check, ok, Ferr, req, int, minLen } from '../validate';
 
 /**
  * Cold Mail — automated lead generation for the organization login.
@@ -136,6 +138,26 @@ export default function ColdMail() {
   }, [fail]);
 
   useEffect(() => { load(); }, [load]);
+
+  /**
+   * The scheduler runs on the server, so sent-today / queued / delivered keep
+   * moving without anyone touching this page. Re-fetch on a timer — and when
+   * the tab comes back into focus — so the counters on screen match the mailbox
+   * instead of the last time something happened to trigger a reload.
+   */
+  const busyRef = useRef(busy);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+
+  useEffect(() => {
+    const refresh = () => { if (!busyRef.current) load(); };
+    const id = setInterval(refresh, 15000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [load]);
 
   const selected = useMemo(
     () => campaigns.find((c) => c.id === selectedId) || null,
@@ -460,6 +482,7 @@ function CampaignDetail({ campaign, templates, busy, run, onChanged, fail, onClo
   const [rFilter, setRFilter] = useState('');
   const [rSearch, setRSearch] = useState('');
   const [edit, setEdit] = useState(false);
+  const [fe, setFe] = useState({});
   const [form, setForm] = useState(() => ({
     name: campaign.name,
     template_id: campaign.template_id,
@@ -484,7 +507,10 @@ function CampaignDetail({ campaign, templates, busy, run, onChanged, fail, onClo
     }
   }, [campaign.id, rFilter, rSearch, fail]);
 
-  useEffect(() => { loadRecs(); }, [loadRecs]);
+  // Re-fetch whenever the filters change, and whenever the parent hands us a
+  // freshly polled campaign — otherwise the header stats move while the queue
+  // below still shows the old statuses.
+  useEffect(() => { loadRecs(); }, [loadRecs, campaign]);
 
   const afterChange = async () => { await onChanged(); await loadRecs(); };
 
@@ -570,8 +596,23 @@ function CampaignDetail({ campaign, templates, busy, run, onChanged, fail, onClo
       {edit && (
         <div className="cm-block">
           <div className="cm-h"><h4>Campaign settings</h4></div>
-          <form className="form" onSubmit={(e) => { e.preventDefault(); saveConfig(); }}>
-            <Field label="Name"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <form className="form" onSubmit={(e) => {
+            e.preventDefault();
+            const errs = check({
+              name: [req('Name')],
+              daily_limit: [int('Daily limit', { min: 1, max: 1000 })],
+              max_followups: [int('Max follow-ups', { min: 0, max: 5 })],
+              window_start: [int('Send window start', { min: 0, max: 23 })],
+              window_end: [int('Send window end', { min: 1, max: 24 })],
+            }, form);
+            setFe(errs);
+            if (!ok(errs)) return;
+            saveConfig();
+          }}>
+            <Field label="Name">
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-invalid={!!fe.name} />
+              <Ferr fe={fe} name="name" />
+            </Field>
             <Field label="From name"><input value={form.from_name} onChange={(e) => setForm({ ...form, from_name: e.target.value })} /></Field>
             <Field label="Initial template">
               <select value={form.template_id} onChange={(e) => setForm({ ...form, template_id: e.target.value })}>
@@ -584,16 +625,24 @@ function CampaignDetail({ campaign, templates, busy, run, onChanged, fail, onClo
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </Field>
-            <Field label="Daily limit"><input type="number" min="1" value={form.daily_limit} onChange={(e) => setForm({ ...form, daily_limit: +e.target.value })} /></Field>
+            <Field label="Daily limit">
+              <input type="number" min="1" value={form.daily_limit} onChange={(e) => setForm({ ...form, daily_limit: +e.target.value })} aria-invalid={!!fe.daily_limit} />
+              <Ferr fe={fe} name="daily_limit" />
+            </Field>
             <Field label="Follow-up days" hint="Day offsets from enrolment, e.g. 0,3,7">
               <input value={form.follow_up_days} onChange={(e) => setForm({ ...form, follow_up_days: e.target.value })} />
             </Field>
-            <Field label="Max follow-ups"><input type="number" min="0" max="5" value={form.max_followups} onChange={(e) => setForm({ ...form, max_followups: +e.target.value })} /></Field>
+            <Field label="Max follow-ups">
+              <input type="number" min="0" max="5" value={form.max_followups} onChange={(e) => setForm({ ...form, max_followups: +e.target.value })} aria-invalid={!!fe.max_followups} />
+              <Ferr fe={fe} name="max_followups" />
+            </Field>
             <Field label="Send window">
               <span className="cm-inline">
-                <input type="number" min="0" max="23" value={form.window_start} onChange={(e) => setForm({ ...form, window_start: +e.target.value })} />
-                <input type="number" min="1" max="24" value={form.window_end} onChange={(e) => setForm({ ...form, window_end: +e.target.value })} />
+                <input type="number" min="0" max="23" value={form.window_start} onChange={(e) => setForm({ ...form, window_start: +e.target.value })} aria-invalid={!!fe.window_start} />
+                <input type="number" min="1" max="24" value={form.window_end} onChange={(e) => setForm({ ...form, window_end: +e.target.value })} aria-invalid={!!fe.window_end} />
               </span>
+              <Ferr fe={fe} name="window_start" />
+              <Ferr fe={fe} name="window_end" />
             </Field>
             <span>
               <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button>
@@ -687,7 +736,11 @@ function CampaignDetail({ campaign, templates, busy, run, onChanged, fail, onClo
                         </button>
                       )}
                       <button type="button" className="btn ghost sm" disabled={busy}
-                        onClick={async () => { await run(() => api.outreachRemoveRecipient(campaign.id, r.id), 'Removed from queue'); await afterChange(); }}>
+                        onClick={async () => {
+                          if (!(await confirmDialog({ title: 'Remove from queue', message: `Remove ${r.name || r.email} (${r.email}) from this campaign's queue?` }))) return;
+                          await run(() => api.outreachRemoveRecipient(campaign.id, r.id), 'Removed from queue');
+                          await afterChange();
+                        }}>
                         Remove
                       </button>
                     </div>
@@ -708,10 +761,20 @@ function NewCampaignModal({ templates, onClose, onCreate }) {
     name: '', template_id: templates[0]?.id || '', followup_template_id: '',
     daily_limit: 40, window_start: 10, window_end: 18, follow_up_days: '0,3,7', max_followups: 2,
   });
+  const [fe, setFe] = useState({});
   return (
     <Modal title="New campaign" onClose={onClose}>
       <form className="form" onSubmit={(e) => {
         e.preventDefault();
+        const errs = check({
+          name: [req('Campaign name')],
+          daily_limit: [int('Daily limit', { min: 1, max: 1000 })],
+          max_followups: [int('Max follow-ups', { min: 0, max: 5 })],
+          window_start: [int('Send window start', { min: 0, max: 23 })],
+          window_end: [int('Send window end', { min: 1, max: 24 })],
+        }, f);
+        setFe(errs);
+        if (!ok(errs)) return;
         onCreate({
           ...f,
           followup_template_id: f.followup_template_id || null,
@@ -719,7 +782,8 @@ function NewCampaignModal({ templates, onClose, onCreate }) {
         });
       }}>
         <Field label="Name" wide>
-          <input required placeholder="Q1 college outreach" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <input required placeholder="Q1 college outreach" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-invalid={!!fe.name} />
+          <Ferr fe={fe} name="name" />
         </Field>
         <Field label="Initial template">
           <select value={f.template_id} onChange={(e) => setF({ ...f, template_id: e.target.value })}>
@@ -732,16 +796,24 @@ function NewCampaignModal({ templates, onClose, onCreate }) {
             {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </Field>
-        <Field label="Daily limit"><input type="number" min="1" value={f.daily_limit} onChange={(e) => setF({ ...f, daily_limit: +e.target.value })} /></Field>
+        <Field label="Daily limit">
+          <input type="number" min="1" value={f.daily_limit} onChange={(e) => setF({ ...f, daily_limit: +e.target.value })} aria-invalid={!!fe.daily_limit} />
+          <Ferr fe={fe} name="daily_limit" />
+        </Field>
         <Field label="Follow-up days" hint="e.g. 0,3,7">
           <input value={f.follow_up_days} onChange={(e) => setF({ ...f, follow_up_days: e.target.value })} />
         </Field>
-        <Field label="Max follow-ups"><input type="number" min="0" max="5" value={f.max_followups} onChange={(e) => setF({ ...f, max_followups: +e.target.value })} /></Field>
+        <Field label="Max follow-ups">
+          <input type="number" min="0" max="5" value={f.max_followups} onChange={(e) => setF({ ...f, max_followups: +e.target.value })} aria-invalid={!!fe.max_followups} />
+          <Ferr fe={fe} name="max_followups" />
+        </Field>
         <Field label="Send window">
           <span className="cm-inline">
-            <input type="number" min="0" max="23" value={f.window_start} onChange={(e) => setF({ ...f, window_start: +e.target.value })} />
-            <input type="number" min="1" max="24" value={f.window_end} onChange={(e) => setF({ ...f, window_end: +e.target.value })} />
+            <input type="number" min="0" max="23" value={f.window_start} onChange={(e) => setF({ ...f, window_start: +e.target.value })} aria-invalid={!!fe.window_start} />
+            <input type="number" min="1" max="24" value={f.window_end} onChange={(e) => setF({ ...f, window_end: +e.target.value })} aria-invalid={!!fe.window_end} />
           </span>
+          <Ferr fe={fe} name="window_start" />
+          <Ferr fe={fe} name="window_end" />
         </Field>
         <span>
           <button className="btn" type="submit">Create campaign</button>
@@ -793,10 +865,10 @@ function TemplatesTab({ templates, busy, run }) {
                     <button type="button" className="btn ghost sm" onClick={() => setPreview(t)}>Preview</button>
                     <button type="button" className="btn ghost sm" onClick={() => setEditing(t)}>Edit</button>
                     <button type="button" className="btn ghost sm" disabled={busy}
-                      onClick={() => run(async () => {
-                        if (!window.confirm(`Delete template "${t.name}"?`)) return null;
-                        return api.deleteOutreachTemplate(t.id);
-                      }, 'Template deleted')}>
+                      onClick={async () => {
+                        if (!(await confirmDialog({ title: 'Delete template', message: `Delete template "${t.name}"?` }))) return;
+                        await run(() => api.deleteOutreachTemplate(t.id), 'Template deleted');
+                      }}>
                       Delete
                     </button>
                   </div>
@@ -835,19 +907,41 @@ function TemplateModal({ template, onClose, onSave }) {
     body: template.body || '',
   });
   const [busy, setBusy] = useState(false);
+  const [fe, setFe] = useState({});
 
   return (
     <Modal title={template.id ? `Edit ${template.id}` : 'New template'} onClose={onClose} wide>
-      <form className="form" onSubmit={async (e) => { e.preventDefault(); setBusy(true); await onSave(f); setBusy(false); }}>
-        <Field label="Name"><input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+      <form className="form" onSubmit={async (e) => {
+        e.preventDefault();
+        const errs = check({
+          name: [req('Name'), minLen(2, 'Name')],
+          category: [req('Category')],
+          subject: [req('Subject'), minLen(3, 'Subject')],
+          body: [req('Body'), minLen(10, 'Body')],
+        }, f);
+        setFe(errs);
+        if (!ok(errs)) return;
+        setBusy(true);
+        await onSave(f);
+        setBusy(false);
+      }}>
+        <Field label="Name">
+          <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-invalid={!!fe.name} />
+          <Ferr fe={fe} name="name" />
+        </Field>
         <Field label="Category">
-          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} aria-invalid={!!fe.category}>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
           </select>
+          <Ferr fe={fe} name="category" />
         </Field>
-        <Field label="Subject" wide><input required value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} /></Field>
+        <Field label="Subject" wide>
+          <input required value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} aria-invalid={!!fe.subject} />
+          <Ferr fe={fe} name="subject" />
+        </Field>
         <Field label="Body" wide>
-          <textarea className="cm-textarea" rows={12} required value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
+          <textarea className="cm-textarea" rows={12} required value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} aria-invalid={!!fe.body} />
+          <Ferr fe={fe} name="body" />
         </Field>
         <span>
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save template'}</button>
@@ -956,6 +1050,94 @@ function SuppressionTab({ rows, search, onSearch, busy, run }) {
  * Automation
  * ------------------------------------------------------------------ */
 
+/** Editor for the four numbers the scheduler actually runs on. */
+function LimitsCard({ overview, busy, save }) {
+  const limits = overview.limits;
+  const defaults = overview.limit_defaults || overview.limits;
+  const toForm = (v) => ({
+    daily_cap: v.daily_cap,
+    min_gap_s: Math.max(1, Math.round(v.min_gap_ms / 1000)),
+    tick_s: Math.max(1, Math.round(v.tick_ms / 1000)),
+    max_attempts: v.max_attempts,
+  });
+  const [f, setF] = useState(() => toForm(limits));
+  const [err, setErr] = useState('');
+  const [fe, setFe] = useState({});
+
+  const setNum = (key) => (e) => setF({ ...f, [key]: +e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const errs = check({
+      daily_cap: [int('Daily cap', { min: 1, max: 1000 })],
+      min_gap_s: [int('Spacing', { min: 1, max: 600 })],
+      tick_s: [int('Tick', { min: 5, max: 3600 })],
+      max_attempts: [int('Retries', { min: 1, max: 10 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
+    if (Number(f.tick_s) < Number(f.min_gap_s)) {
+      setErr('The tick must be at least as long as the spacing, or the gap can never apply.');
+      return;
+    }
+    setErr('');
+    await save({
+      daily_cap: Number(f.daily_cap),
+      min_gap_ms: Number(f.min_gap_s) * 1000,
+      tick_ms: Number(f.tick_s) * 1000,
+      max_attempts: Number(f.max_attempts),
+    });
+  };
+
+  // Blank on the server means "fall back to the env default", so a reset is
+  // just sending empty values and showing what the env resolves to.
+  const reset = async () => {
+    setErr('');
+    setFe({});
+    const out = await save({ daily_cap: '', min_gap_ms: '', tick_ms: '', max_attempts: '' });
+    if (out) setF(toForm(defaults));
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="cm-h">
+        <h4>Throughput limits</h4>
+        <span className="cm-note">Applies to every campaign and to the scheduler itself</span>
+      </div>
+      <p className="cm-note">
+        The automation will never mail an address on the suppression list, exceed the daily cap,
+        send outside a campaign's window, or report a message as delivered while the mailbox is
+        disconnected. When SMTP is missing it queues and says so. Changing the tick takes effect on
+        the next cycle — no restart needed.
+      </p>
+
+      <form className="form" onSubmit={submit}>
+        <Field label="Daily cap" hint={`Messages per day, all campaigns (default ${defaults.daily_cap})`}>
+          <input type="number" min="1" max="1000" value={f.daily_cap} disabled={busy} onChange={setNum('daily_cap')} aria-invalid={!!fe.daily_cap} />
+          <Ferr fe={fe} name="daily_cap" />
+        </Field>
+        <Field label="Spacing" hint={`Seconds between two sends (default ${Math.round(defaults.min_gap_ms / 1000)}s)`}>
+          <input type="number" min="1" max="600" value={f.min_gap_s} disabled={busy} onChange={setNum('min_gap_s')} aria-invalid={!!fe.min_gap_s} />
+          <Ferr fe={fe} name="min_gap_s" />
+        </Field>
+        <Field label="Tick" hint={`Seconds between send cycles (default ${Math.round(defaults.tick_ms / 1000)}s)`}>
+          <input type="number" min="5" max="3600" value={f.tick_s} disabled={busy} onChange={setNum('tick_s')} aria-invalid={!!fe.tick_s} />
+          <Ferr fe={fe} name="tick_s" />
+        </Field>
+        <Field label="Retries" hint={`Attempts before a recipient fails (default ${defaults.max_attempts})`}>
+          <input type="number" min="1" max="10" value={f.max_attempts} disabled={busy} onChange={setNum('max_attempts')} aria-invalid={!!fe.max_attempts} />
+          <Ferr fe={fe} name="max_attempts" />
+        </Field>
+        <span>
+          <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save limits'}</button>
+          <button type="button" className="btn ghost" disabled={busy} onClick={reset}>Reset to defaults</button>
+        </span>
+      </form>
+      {err && <div className="err">{err}</div>}
+    </div>
+  );
+}
+
 function AutomationTab({ settings, overview, campaigns, busy, save }) {
   const [form, setForm] = useState(() => ({
     outreach_enabled: settings.outreach_enabled === '1',
@@ -999,13 +1181,14 @@ function AutomationTab({ settings, overview, campaigns, busy, save }) {
           />
 
           <dl className="kv" style={{ marginTop: 14, marginBottom: 0 }}>
-            <div><dt>Daily cap</dt><dd>{limits.daily_cap} messages</dd></div>
-            <div><dt>Spacing</dt><dd>{Math.round(limits.min_gap_ms / 1000)}s between sends</dd></div>
-            <div><dt>Tick</dt><dd>Every {Math.round(limits.tick_ms / 1000)}s</dd></div>
+            <div><dt>Throughput</dt><dd>{limits.daily_cap}/day · {Math.round(limits.min_gap_ms / 1000)}s apart · every {Math.round(limits.tick_ms / 1000)}s</dd></div>
             <div><dt>Retries</dt><dd>{limits.max_attempts} attempts, then failed</dd></div>
             <div><dt>Last run</dt><dd>{lastTick ? fmtDate(lastTick.at) : '—'}</dd></div>
             <div><dt>Last outcome</dt><dd>{lastTick?.reason || (lastTick ? `${lastTick.sent} sent` : '—')}</dd></div>
           </dl>
+          <p className="cm-note" style={{ marginTop: 10 }}>
+            Daily cap, spacing, tick and retries are editable under <b>Throughput limits</b> below.
+          </p>
         </div>
 
         <div className="card">
@@ -1059,14 +1242,7 @@ function AutomationTab({ settings, overview, campaigns, busy, save }) {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="cm-h"><h4>Hard limits</h4></div>
-        <p className="cm-note">
-          The automation will never mail an address on the suppression list, exceed the daily cap,
-          send outside a campaign's window, or report a message as delivered while the mailbox is
-          disconnected. When SMTP is missing it queues and says so.
-        </p>
-      </div>
+      <LimitsCard overview={overview} busy={busy} save={save} />
     </div>
   );
 }

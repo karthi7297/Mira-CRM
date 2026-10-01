@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, toast, toastError } from '../api';
 import { useAuth } from '../auth';
+import { check, ok, req, num, Ferr } from '../validate';
 
 export default function LeaveApproval() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export default function LeaveApproval() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [showApply, setShowApply] = useState(false);
+  const [fe, setFe] = useState({});
   const [f, setF] = useState({
     trainer_id: 'TR-001',
     trainer_name: 'Arun Kumar',
@@ -60,6 +62,14 @@ export default function LeaveApproval() {
 
   const submitLeave = async (e) => {
     e.preventDefault();
+    const errs = check({
+      from_date: [req('From date')],
+      to_date: [req('To date')],
+      days: [req('Number of days'), num('Number of days', { min: 0.5 })],
+      reason: [req('Reason')],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!String(f.reason || '').trim()) { setMsg('Please give a reason for the leave'); return; }
     if (f.to_date < f.from_date) { setMsg('End date cannot be before the start date'); return; }
@@ -270,7 +280,9 @@ export default function LeaveApproval() {
                     required
                     value={f.from_date}
                     onChange={(e) => setF({ ...f, from_date: e.target.value })}
+                    aria-invalid={!!fe.from_date}
                   />
+                  <Ferr fe={fe} name="from_date" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>To Date</label>
@@ -279,27 +291,37 @@ export default function LeaveApproval() {
                     required
                     value={f.to_date}
                     onChange={(e) => setF({ ...f, to_date: e.target.value })}
+                    aria-invalid={!!fe.to_date}
                   />
+                  <Ferr fe={fe} name="to_date" />
                 </div>
               </div>
 
               <label style={{ fontSize: 13, fontWeight: 600 }}>Number of Days</label>
-              <input
-                type="number"
-                min="0.5"
-                step="0.5"
-                required
-                value={f.days}
-                onChange={(e) => setF({ ...f, days: e.target.value })}
-              />
+              <div>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  required
+                  value={f.days}
+                  onChange={(e) => setF({ ...f, days: e.target.value })}
+                  aria-invalid={!!fe.days}
+                />
+                <Ferr fe={fe} name="days" />
+              </div>
 
               <label style={{ fontSize: 13, fontWeight: 600 }}>Reason</label>
-              <input
-                required
-                placeholder="Reason for leave"
-                value={f.reason}
-                onChange={(e) => setF({ ...f, reason: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  placeholder="Reason for leave"
+                  value={f.reason}
+                  onChange={(e) => setF({ ...f, reason: e.target.value })}
+                  aria-invalid={!!fe.reason}
+                />
+                <Ferr fe={fe} name="reason" />
+              </div>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit Request'}</button>
