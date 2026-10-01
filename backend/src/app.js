@@ -107,7 +107,7 @@ function createApp() {
     ok(res, await leadsService.listLeads({ search: req.query.search || '', status: req.query.status || '' }))));
   app.get('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.getLead(req.params.id))));
-  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string' } }), asyncHandler(async (req, res) =>
+  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await leadsService.createLead(req.body || {}))));
   app.patch('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.updateLead(req.params.id, req.body || {}))));
@@ -136,7 +136,7 @@ function createApp() {
   // Trainer 360 for Rampex: profile + batches + students + payouts + leave.
   app.get('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.getTrainerDetail(req.params.id))));
-  app.post('/api/trainers', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
+  app.post('/api/trainers', requireOrg, validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createTrainer(req.body || {}))));
   app.patch('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.updateTrainer(req.params.id, req.body || {}))));
@@ -160,7 +160,7 @@ function createApp() {
   // organization per the service guards.
   app.get('/api/students', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listStudents(req.scope, { batch_id: req.query.batch_id || '', search: req.query.search || '' }))));
-  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
+  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createStudent(req.scope, req.body || {}))));
   app.post('/api/students/bulk', requireRole('trainer', 'institution', 'organization'), validate({ body: { students: 'array' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.bulkCreateStudents(req.scope, req.body || {}))));

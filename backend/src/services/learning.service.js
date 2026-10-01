@@ -203,6 +203,8 @@ async function saveScore(scope, body = {}) {
   });
   const score = Number(body.score);
   if (!Number.isFinite(score)) throw badRequest('score must be a number');
+  const maxScore = Number(asm.max_score) || 100;
+  if (score < 0 || score > maxScore) throw badRequest(`score must be between 0 and ${maxScore}`);
   await db.run(
     `INSERT INTO scores (assessment_id,student_id,score,marked_at) VALUES (?,?,?,datetime('now'))
      ON CONFLICT(assessment_id,student_id) DO UPDATE SET score = excluded.score, marked_at = datetime('now')`,

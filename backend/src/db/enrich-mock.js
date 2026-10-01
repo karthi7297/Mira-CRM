@@ -230,6 +230,12 @@ async function enrich() {
   }
 
   console.log('[enrich] Mock data enrichment complete! All financial and student tables enriched.');
+
+  // Rich dataset: 30 students per institution, 8 trainers, full attendance /
+  // scores / sessions for every batch, zero empty values. Idempotent.
+  const { richSeed } = require('./rich-seed');
+  await richSeed(db);
+  console.log('[enrich] Rich-seed expansion complete.');
 }
 
 if (require.main === module) {
