@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, inr, toast, toastError } from '../api';
 import { printCertificate } from '../report';
+import AiInsights from '../AiInsights';
 import { useAuth } from '../auth';
 import { check, ok, req, minLen, Ferr } from '../validate';
 

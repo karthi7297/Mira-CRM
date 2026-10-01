@@ -4,7 +4,9 @@ import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
 import { confirmDialog } from '../Confirm';
-import { exportAssessmentPDF, exportAssessmentExcel } from '../exportReport';
+import { exportAssessmentPDF, exportAssessmentExcel, exportBatchPDF, exportOverallPDF } from '../exportReport';
+import AiInsights from '../AiInsights';
+import { useListControls, ListState, ListToolbar, Pager, SortHeader, DateRange, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, ArchiveToggle } from '../listkit';
 import { check, ok, Ferr, req, email, phone, num, int } from '../validate';
 
 function parseCSV(csvText) {
@@ -67,6 +69,9 @@ const loadXLSX = async () => {
 };
 
 export function Programs() {
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({});
@@ -235,6 +240,9 @@ export function Programs() {
 }
 
 export function Trainers() {
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
@@ -418,6 +426,9 @@ export function Trainers() {
 }
 
 export function Batches() {
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
@@ -880,6 +891,9 @@ export function BatchDetail() {
 }
 
 export function Students() {
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
+  const [archived, setArchived] = useState(false);
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [batches, setBatches] = useState([]);
