@@ -17,7 +17,7 @@ const SCOPE_BY_LINK = {
 async function login({ email, password } = {}) {
   if (!email || !password) throw unauthorized('Email and password required');
   const user = await db.get(
-    'SELECT id, name, email, role, customer_id, password_hash FROM users WHERE email = ?',
+    'SELECT id, name, email, role, customer_id, password_hash, must_change_password FROM users WHERE email = ?',
     [String(email).trim().toLowerCase()]
   );
   if (!user || !verifyPassword(String(password), user.password_hash)) {
@@ -40,6 +40,8 @@ async function login({ email, password } = {}) {
     name: user.name,
     email: user.email,
     role: String(user.role).toLowerCase(),
+    // Accounts issued with a temporary password must change it on first login.
+    mustChangePassword: user.must_change_password === 1 || user.must_change_password === true,
     ...scope,
     token: `demo-${user.id}`,
   };

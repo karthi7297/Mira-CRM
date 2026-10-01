@@ -35,4 +35,10 @@ module.exports = {
     mediumOutstanding: 50000,
     mediumOverdueDays: 7,
   },
+
+  // Credentials emails (Nodemailer) — see src/config/mailer.js for SMTP auth.
+  mail: {
+    appName: process.env.APP_NAME || 'Mira',
+    loginUrl: process.env.APPLICATION_LOGIN_URL || 'http://localhost:5173/login',
+  },
 };

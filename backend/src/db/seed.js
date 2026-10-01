@@ -225,9 +225,26 @@ async function clearDb(db) {
   for (const t of tables) await db.exec(`DELETE FROM ${t}`);
 }
 
-/** Boot: apply schema, seed demo rows when empty. */
+/**
+ * Column migrations for databases created before a column existed —
+ * CREATE TABLE IF never alters an existing table. Dialect-neutral ALTER; a
+ * duplicate-column error simply means the column is already there.
+ */
+async function migrate(db) {
+  try {
+    await db.exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
+  } catch (e) {
+    const msg = String((e && e.message) || e);
+    if (!/duplicate column|already exists|1060/i.test(msg)) {
+      console.warn(`[db] migration warning (must_change_password): ${msg}`);
+    }
+  }
+}
+
+/** Boot: apply schema, migrate columns, seed demo rows when empty. */
 async function initialize(db) {
   await applySchema(db);
+  await migrate(db);
   const c = await db.count('SELECT COUNT(*) FROM users');
   if (c === 0) {
     await db.transaction((tx) => seedDemoData(tx));

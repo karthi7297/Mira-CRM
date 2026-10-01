@@ -195,8 +195,10 @@ export function Trainers() {
         await api.updateTrainer(editing, f);
         toast('✓ Trainer updated');
       } else {
-        await api.createTrainer(f);
-        toast('✓ Trainer added');
+        const created = await api.createTrainer(f);
+        // Credentials email is best-effort: warn (with the resend hint) when it fails.
+        if (created.emailSent) toast(created.message);
+        else setMsg(created.message);
       }
       setShow(false);
       setEditing(null);
@@ -214,6 +216,18 @@ export function Trainers() {
       await api.deleteTrainer(t.id);
       toast('✓ Trainer deleted');
       load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  // Re-send the login credentials email (rotates the temporary password).
+  const resend = async (t) => {
+    setMsg('');
+    try {
+      const r = await api.resendCredentials(t.id);
+      if (r.emailSent) toast(`✓ ${r.message}`);
+      else setMsg(r.message);
     } catch (ex) {
       setMsg(ex.message);
     }
@@ -248,6 +262,9 @@ export function Trainers() {
               {canManage && (
                 <td>
                   <button className="btn sm ghost" onClick={() => openEdit(t)}>Edit</button>
+                  {t.user_id && (
+                    <button className="btn sm ghost" title="Re-send the login credentials email" onClick={() => resend(t)}>Resend</button>
+                  )}
                   <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(t)}>Delete</button>
                 </td>
               )}
@@ -632,16 +649,30 @@ export function Students() {
     e.preventDefault();
     setErr('');
     try {
-      await api.createStudent({
+      const created = await api.createStudent({
         name: addForm.name,
         email: addForm.email,
         phone: addForm.phone,
         batch_id: addForm.batch_id || undefined,
       });
-      toast('✓ Student successfully added!');
+      // Credentials email is best-effort: warn (with the resend hint) when it fails.
+      if (created.emailSent) toast(created.message);
+      else setErr(created.message);
       setShowAdd(false);
       setAddForm({});
       load();
+    } catch (ex) {
+      setErr(ex.message);
+    }
+  };
+
+  // Re-send the login credentials email for a student account (org/institution).
+  const resendCredentials = async (s) => {
+    setErr('');
+    try {
+      const r = await api.resendCredentials(s.id);
+      if (r.emailSent) toast(`✓ ${r.message}`);
+      else setErr(r.message);
     } catch (ex) {
       setErr(ex.message);
     }
@@ -794,6 +825,9 @@ export function Students() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button className="btn sm ghost" onClick={() => handleReport(s.id)}>Report</button>
                     <button className="btn sm ghost" onClick={() => setEditStudent(s)}>Edit</button>
+                    {(user?.role === 'organization' || user?.role === 'institution') && s.user_id && (
+                      <button className="btn sm ghost" title="Re-send the login credentials email" onClick={() => resendCredentials(s)}>Resend</button>
+                    )}
                     <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => handleDelete(s.id, s.name)}>Delete</button>
                   </div>
                 </td>

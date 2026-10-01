@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, NAV } from './auth';
+import { api } from './api';
 import Layout from './Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -18,9 +20,80 @@ function College() {
   return <Customer360 fixedId={user.customer_id} />;
 }
 
+/**
+ * Blocks the whole app until a temporary password (issued with the credentials
+ * email) is replaced — users.must_change_password (§10). No route renders
+ * behind this gate while the flag is set.
+ */
+function ForcePasswordChange() {
+  const { user, login, logout } = useAuth();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    if (next !== confirm) { setErr('New passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      await api.changePassword({ currentPassword: current, newPassword: next });
+      login({ ...user, mustChangePassword: false });
+    } catch (ex) {
+      setErr(ex.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f1f5f9', padding: 24 }}>
+      <div className="card" style={{ width: 'min(100%, 460px)', padding: 28 }}>
+        <h2 style={{ marginTop: 0 }}>Set your password</h2>
+        <p className="meta" style={{ marginTop: 0 }}>
+          Your account was created with a temporary password. Choose a new password to continue.
+        </p>
+        {err && <div className="err">{err}</div>}
+        <form onSubmit={submit} className="form col-1">
+          <input
+            type="password"
+            placeholder="Temporary password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="New password (min 6 characters)"
+            autoComplete="new-password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm new password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+          <span style={{ display: 'flex', gap: 10 }}>
+            <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
+            <button className="btn ghost" type="button" onClick={logout}>Sign out</button>
+          </span>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function Guard({ children, path }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
+  if (user.mustChangePassword) return <ForcePasswordChange />;
   const nav = NAV.find(n => n.to === path);
   if (nav && !nav.roles.includes(user.role)) return <div className="err">Access Denied — {user.role} cannot open this module.</div>;
   if (path === '/learning' && user.role !== 'student') return <div className="err">Access Denied.</div>;
