@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr, toast, toastError } from '../api';
 import { useAuth } from '../auth';
@@ -68,6 +68,15 @@ export function Leads() {
   const load = () =>
     api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}`).then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
+  // Filters apply automatically: changing the status reloads at once and
+  // typing searches live (debounced). The Filter button / Enter key still
+  // force a reload immediately. Skips the first run (mount already loaded).
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    const t = setTimeout(load, 350);
+    return () => clearTimeout(t);
+  }, [q, st]);
 
   const create = async (e) => {
     e.preventDefault();
