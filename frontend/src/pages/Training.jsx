@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
+import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
+import { exportAssessmentPDF, exportAssessmentExcel } from '../exportReport';
 
 function parseCSV(csvText) {
   const lines = csvText.trim().split('\n');
@@ -239,7 +241,7 @@ export function Trainers() {
 
       <table>
         <thead>
-          <tr><th>ID</th><th>Name</th><th>Expertise</th><th>Email</th><th>Phone</th>{canManage && <th>Actions</th>}</tr>
+          <tr><th>ID</th><th>Name</th><th>Expertise</th><th>Email</th><th>Phone</th><th></th>{canManage && <th>Actions</th>}</tr>
         </thead>
         <tbody>
           {rows.map((t) => (
@@ -249,6 +251,7 @@ export function Trainers() {
               <td>{t.expertise || '—'}</td>
               <td>{t.email || '—'}</td>
               <td>{t.phone || '—'}</td>
+              <td><Link to={'/trainers/' + t.id} className="btn sm ghost">View →</Link></td>
               {canManage && (
                 <td>
                   <button className="btn sm ghost" onClick={() => openEdit(t)}>Edit</button>
@@ -489,10 +492,10 @@ export function BatchDetail() {
   // Student management belongs to the trainer who delivers the batch — enrolling
   // students and reading per-student reports. Scheduling sessions is batch
   // logistics, which stays with the Rampex organization.
-  const canEnroll = user?.role === 'trainer';
+  const canEnroll = user?.role === 'trainer' || user?.role === 'organization';
   const canSchedule = user?.role === 'organization';
-  const canReport = user?.role === 'trainer';
-  const canSeeInterests = ['organization', 'trainer'].includes(user?.role);
+  const canReport = ['trainer', 'institution', 'organization'].includes(user?.role);
+  const canSeeInterests = ['organization', 'trainer', 'institution'].includes(user?.role);
   const batchInterests = ints.filter((i) => (b.students || []).some((s) => s.id === i.student_id));
 
   return (
@@ -606,7 +609,7 @@ export function BatchDetail() {
 
       {canSeeInterests && (
         <div className="card mt">
-          <h4>Student Interests · trainers + Rampex only</h4>
+          <h4>Student Interests · trainers, institutions + Rampex only</h4>
           {batchInterests.length === 0 && <p className="empty">No interests shared by this batch yet.</p>}
           <div className="list">
             {batchInterests.map((i) => (
@@ -718,7 +721,7 @@ export function Students() {
     <div>
       <div className="page-head">
         <div>
-          <h2>{isInstitution ? 'Student Roster & Management' : 'My Students'}</h2>
+          <h2>{user?.role === 'organization' ? 'All Students' : isInstitution ? 'Student Roster & Management' : 'My Students'}</h2>
           <p className="sub">
             {rows.length} enrolled student{rows.length === 1 ? '' : 's'} · Manage roster, view attendance trends, and monitor academic progress.
           </p>
@@ -810,10 +813,8 @@ export function Students() {
                 <td><b>{s.name}</b></td>
                 <td>{s.batch_label || '—'}</td>
                 <td>{s.program || '—'}</td>
-                <td>
-                  <span className={'chip ' + (att >= 75 ? 'PRESENT' : att >= 50 ? 'LATE' : 'ABSENT')}>
-                    {att}%
-                  </span>
+                <td style={{ minWidth: 170 }}>
+                  <AttendanceBar value={att} />
                 </td>
                 <td className="meta">{s.email || '—'}{s.phone ? ` · ${s.phone}` : ''}</td>
                 <td>
@@ -920,8 +921,8 @@ export function Students() {
                 <h3 style={{ margin: 0 }}>Academic Report · {reportStudent.name}</h3>
                 <small style={{ color: '#64748b' }}>{reportStudent.id} · {reportStudent.program || 'Active Student'}</small>
               </div>
-              <span className={'chip ' + (reportStudent.attendance_rate >= 75 ? 'PRESENT' : 'ABSENT')}>
-                {reportStudent.attendance_rate}% Attendance
+              <span className={'chip ' + (reportStudent.attendance >= 75 ? 'PRESENT' : 'ABSENT')}>
+                {reportStudent.attendance}% Attendance
               </span>
             </div>
 
@@ -932,7 +933,7 @@ export function Students() {
               </div>
               <div className="card">
                 <h4>Average Assessment Score</h4>
-                <b>{reportStudent.average_score ?? '—'}{reportStudent.average_score != null ? '%' : ''}</b>
+                <b>{reportStudent.avg_score ?? '—'}{reportStudent.avg_score != null ? '%' : ''}</b>
               </div>
             </div>
 
@@ -954,6 +955,13 @@ export function Students() {
             ) : (
               <p className="empty">No assessment scores recorded yet for this student.</p>
             )}
+
+            <p className="meta" style={{ marginTop: 12 }}>
+              Weak areas: {(reportStudent.weak_areas || []).map((w) => `${w.topic} (${w.pct}%)`).join(', ') || '—'}
+            </p>
+            <p className="meta">
+              Interests: {(reportStudent.interests || []).map((i) => i.body).join(' · ') || '—'}
+            </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
               <button type="button" className="btn" onClick={() => setReportStudent(null)}>Close</button>
@@ -1511,6 +1519,7 @@ export function Assessments() {
   const [msg, setMsg] = useState('');
   const [batchFilter, setBatchFilter] = useState('ALL');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(''); // "<id>:<kind>" currently exporting
 
   const load = async () => {
     setLoading(true);
@@ -1614,6 +1623,22 @@ export function Assessments() {
     }
   };
 
+  const handleExport = async (a, kind) => {
+    const key = `${a.id}:${kind}`;
+    try {
+      setExporting(key);
+      setMsg('');
+      const report = await api.assessmentReport(a.id);
+      if (kind === 'pdf') await exportAssessmentPDF(report);
+      else await exportAssessmentExcel(report);
+      toast(`✓ ${kind.toUpperCase()} report downloaded`);
+    } catch (ex) {
+      setMsg(ex.message);
+    } finally {
+      setExporting('');
+    }
+  };
+
   const canManage = user?.role === 'organization' || user?.role === 'institution' || user?.role === 'trainer';
 
   return (
@@ -1671,7 +1696,7 @@ export function Assessments() {
                   <td>{a.max_score}</td>
                   <td>{a.score_count || 0}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {canManage && (
                         <>
                           <button className="btn sm ghost" onClick={() => loadScores(a.id)}>
@@ -1679,6 +1704,22 @@ export function Assessments() {
                           </button>
                           <button className="btn sm ghost" onClick={() => handleEditClick(a)}>Edit</button>
                           <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => deleteAssessment(a.id)}>Delete</button>
+                          <button
+                            className="btn sm ghost"
+                            onClick={() => handleExport(a, 'pdf')}
+                            disabled={!!exporting}
+                            title="Download a professional PDF report with full analysis"
+                          >
+                            {exporting === a.id + ':pdf' ? '…' : 'PDF'}
+                          </button>
+                          <button
+                            className="btn sm ghost"
+                            onClick={() => handleExport(a, 'excel')}
+                            disabled={!!exporting}
+                            title="Download an Excel workbook (summary, marks, distribution, insights)"
+                          >
+                            {exporting === a.id + ':excel' ? '…' : 'Excel'}
+                          </button>
                         </>
                       )}
                     </div>

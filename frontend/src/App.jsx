@@ -10,6 +10,7 @@ import { Quotations, Invoices, InvoiceDetail, Payments, Expenses, Reports, Train
 import { Enquire, Verify } from './pages/Public';
 import { Collections, Certificates } from './pages/Showcase';
 import ColdMail from './pages/ColdMail';
+import TrainerDetail from './pages/TrainerDetail';
 import LeaveApproval from './pages/LeaveApproval';
 import AttendanceDetails from './pages/AttendanceDetails';
 import NotFound from './pages/NotFound';
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/college" element={<Guard path="/college"><College /></Guard>} />
           <Route path="/programs" element={<Guard path="/programs"><Programs /></Guard>} />
           <Route path="/trainers" element={<Guard path="/trainers"><Trainers /></Guard>} />
+          <Route path="/trainers/:id" element={<Guard path="/trainers"><TrainerDetail /></Guard>} />
           <Route path="/batches" element={<Guard path="/batches"><Batches /></Guard>} />
           <Route path="/batches/:id" element={<Guard path="/batches"><BatchDetail /></Guard>} />
           <Route path="/students" element={<Guard path="/students"><Students /></Guard>} />

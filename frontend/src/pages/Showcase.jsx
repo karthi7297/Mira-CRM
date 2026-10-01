@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
+import { printCertificate } from '../report';
 import { useAuth } from '../auth';
 
 // FLOW X: risk-ranked collections queue (rule-based prioritization, not ML)
@@ -92,7 +93,7 @@ export function Certificates() {
           <small style={{ color: '#94a3b8' }}>Issued {String(c.issued_on || '').slice(0, 10)}</small>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }} className="no-print">
             <button type="button" className="btn ghost sm" onClick={() => copyVerify(c.certificate_no)}>Copy Code</button>
-            <button type="button" className="btn ghost sm" onClick={() => window.print()}>Print</button>
+            <button type="button" className="btn ghost sm" onClick={() => printCertificate(c)}>Print</button>
           </div>
         </div>))}</div>
       {rows.length === 0 && <p className="empty" style={{ marginTop: 16 }}>No certificates issued yet. Pick an eligible student (≥75% attendance) to issue one above.</p>}

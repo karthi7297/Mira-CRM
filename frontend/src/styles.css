@@ -422,14 +422,14 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
    section takes over with explicit 3 / 2 / 1 column tracks. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
   margin: 0 0 16px;
 }
 
 .card {
   min-width: 0;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -440,7 +440,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
 /* The big KPI figure — only direct children, so inline <b> stays inline */
 .card > b {
   display: block;
-  font-size: clamp(21px, 2.3vw, 28px);
+  font-size: clamp(19px, 1.9vw, 24px);
   font-weight: 700;
   letter-spacing: -0.024em;
   line-height: 1.08;
@@ -466,6 +466,39 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
   gap: 14px;
 }
 .grid2 + .grid2 { margin-top: 14px; }
+
+/* Compact KPI strip (org dashboard): dense top-accent stats instead of
+   oversized hero cards. auto-fit keeps it wrapping cleanly on narrow screens. */
+.cards.kpi-strip {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.card.kpi-compact { padding: 11px 14px 12px; }
+.kpi-title {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.card.kpi-compact .kpi-val {
+  display: block;
+  margin-top: 3px;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.kpi-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+.kpi-trend { font-size: 11px; font-weight: 700; margin-left: 8px; letter-spacing: 0; vertical-align: 2px; }
+.kpi-trend.up { color: var(--ok); }
+.kpi-trend.down { color: var(--bad); }
+
+/* Capped scroll lists keep dashboard rows a fixed height */
+.list.scroll { max-height: 300px; overflow: auto; }
 
 /* ---------- 7. Tables --------------------------------------------------- */
 table {
@@ -1136,8 +1169,8 @@ textarea { min-height: 84px; resize: vertical; }
 @media (max-width: 620px) {
   :root { --top-h: 58px; }
   .cards { gap: 10px; }
-  .card { padding: 14px; }
-  .card > b { font-size: 23px; }
+  .card { padding: 12px; }
+  .card > b { font-size: 20px; }
   .tu-name { display: none; }
   .top-user { padding: 4px; }
   .role { font-size: 9px; padding: 4px 8px; }

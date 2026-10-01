@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, inr, toast, toastError } from '../api';
+import { printCertificate } from '../report';
 import { useAuth } from '../auth';
 
 const TABS = ['Overview', 'Performance', 'Marks', 'Material', 'Certificates', 'Interests', 'Fee'];
@@ -216,7 +217,7 @@ export default function MyLearning() {
                   Verification Code: <b>{c.certificate_no}</b>
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }} className="no-print">
-                  <button type="button" className="btn ghost" onClick={() => window.print()}>Print Certificate</button>
+                  <button type="button" className="btn ghost" onClick={() => printCertificate({ ...c, student_name: d.student?.name })}>Print Certificate</button>
                   <a href={`/verify`} target="_blank" rel="noreferrer" className="btn" style={{ textDecoration: 'none' }}>
                     Verify Credential →
                   </a>
