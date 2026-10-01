@@ -277,11 +277,9 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false); const [q, setQ] = useState(''); const [hits, setHits] = useState([]);
   const { user } = useAuth(); const nav = useNavigate();
   useEffect(() => {
-    const h = (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen(o => !o); setQ(''); } };
     const t = () => { setOpen(o => !o); setQ(''); };
-    window.addEventListener('keydown', h);
     window.addEventListener('toggle-palette', t);
-    return () => { window.removeEventListener('keydown', h); window.removeEventListener('toggle-palette', t); };
+    return () => { window.removeEventListener('toggle-palette', t); };
   }, []);
   useEffect(() => {
     if (!open || q.length < 2) { setHits([]); return; }

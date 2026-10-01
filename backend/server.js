@@ -17,9 +17,19 @@ const automation = require('./src/services/automation.service');
     await db.ready; // driver connected
     await initialize(db); // schema + demo data (db-prd §7)
     const app = createApp();
-    app.listen(config.port, () =>
+    const server = app.listen(config.port, () =>
       console.log(`Mira API on http://localhost:${config.port} (driver: ${db.driver})`)
     );
+    // The Vite dev proxy reuses keep-alive sockets. Node's 5s default
+    // keepAliveTimeout races that reuse and the proxy surfaces it as
+    // ECONNRESET — almost always on /api/assistant/chat, the only endpoint
+    // slow enough (upstream LLM latency) to lose the race. Longer timeouts
+    // on both sides close the window. requestTimeout covers the worst case:
+    // primary model (45s) + fallback model (45s) + snapshot queries.
+    // NOTE: headersTimeout must stay larger than keepAliveTimeout.
+    server.keepAliveTimeout = 30000;
+    server.headersTimeout = 35000;
+    server.requestTimeout = 120000;
     await automation.boot();
   } catch (err) {
     console.error('[boot] failed:', err.message);
