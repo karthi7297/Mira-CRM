@@ -37,6 +37,7 @@ const LEAD_RUN_INTERVAL_MS = 15 * 60 * 1000;
 const BOUNCE_RE = /(?:\b5(?:5[0-4]|\.1\.[01])\b)|user unknown|unknown user|does not exist|no such user|mailbox (?:full|unavailable|not found)|invalid recipient|recipient (?:address )?rejected|address rejected/i;
 
 let timer = null;
+let intervalMs = 0; // current scheduler cadence, so a saved tick_ms can re-arm it
 let running = false;
 let lastLeadRun = 0;
 
@@ -105,7 +106,7 @@ async function handleSendError(row, err) {
     return { outcome: 'BOUNCED' };
   }
 
-  if (attempts >= config.mail.maxAttempts) {
+  if (attempts >= (await campaign.getLimits()).max_attempts) {
     await db.run("UPDATE campaign_recipients SET status = 'FAILED', last_error = ? WHERE id = ?", [message, row.id]);
     await campaign.logEvent(row, 'FAILED', message);
     return { outcome: 'FAILED' };
@@ -276,6 +277,10 @@ async function tick() {
 
   try {
     const settings = await campaign.getSettings();
+    // Read once per cycle: these are what the operator sees in the Automation
+    // tab, so the cadence and caps the UI promises are exactly what runs.
+    const limits = await campaign.getLimits();
+    syncInterval(limits.tick_ms);
 
     // Lead automation is independent of whether sending is switched on.
     if (Date.now() - lastLeadRun > LEAD_RUN_INTERVAL_MS) {
@@ -295,7 +300,7 @@ async function tick() {
 
     // With a 60s tick and a 20s gap, three messages per tick is the honest
     // budget; the sleep between them is what stops a burst.
-    const limit = Math.max(1, Math.floor(config.mail.tickMs / config.mail.minGapMs));
+    const limit = Math.max(1, Math.floor(limits.tick_ms / limits.min_gap_ms));
     const dayStart = campaign.localDayStartIso();
 
     const candidates = await db.query(
@@ -332,8 +337,8 @@ async function tick() {
       }
 
       const globalSent = await countSentSince(dayStart);
-      if (globalSent >= config.mail.dailyCap) {
-        summary.reason = `Daily cap of ${config.mail.dailyCap} messages reached`;
+      if (globalSent >= limits.daily_cap) {
+        summary.reason = `Daily cap of ${limits.daily_cap} messages reached`;
         break;
       }
 
@@ -360,7 +365,7 @@ async function tick() {
       else if (res.outcome === 'SKIPPED') summary.skipped++;
 
       // Space out the sends inside this cycle.
-      if (summary.sent > 0 && summary.sent < limit) await sleep(config.mail.minGapMs);
+      if (summary.sent > 0 && summary.sent < limit) await sleep(limits.min_gap_ms);
     }
 
     return await finish(summary);
@@ -383,13 +388,33 @@ async function runNow() {
  * Lifecycle + read models
  * ------------------------------------------------------------------ */
 
-function start() {
-  if (timer) return;
-  const ms = Math.max(config.mail.tickMs, 5000);
+/** (Re)arm the scheduler at `ms`. Idempotent when nothing changed. */
+function schedule(ms) {
+  const next = Math.max(Number(ms) || 0, 5000);
+  if (timer && next === intervalMs) return;
+  if (timer) clearInterval(timer);
+  intervalMs = next;
   timer = setInterval(() => {
     tick().catch((err) => console.error('[outreach] tick failed:', err.message));
-  }, ms);
+  }, intervalMs);
   if (typeof timer.unref === 'function') timer.unref();
+}
+
+/**
+ * Adopt a tick interval the operator just saved. Called from tick() so an edit
+ * to the cadence takes effect on the next cycle — no restart required.
+ */
+function syncInterval(ms) {
+  if (!timer) return; // scheduler stopped; don't resurrect it
+  const next = Math.max(Number(ms) || 0, 5000);
+  if (next === intervalMs) return;
+  schedule(next);
+  console.log(`[outreach] cadence changed → every ${Math.round(next / 1000)}s`);
+}
+
+function start(ms) {
+  if (timer) return;
+  schedule(ms || config.mail.tickMs);
 
   // Resume a paused queue shortly after boot rather than waiting a full tick.
   const kick = setTimeout(() => {
@@ -397,13 +422,14 @@ function start() {
   }, 8000);
   if (typeof kick.unref === 'function') kick.unref();
 
-  console.log(`[outreach] scheduler running every ${Math.round(ms / 1000)}s`);
+  console.log(`[outreach] scheduler running every ${Math.round(intervalMs / 1000)}s`);
 }
 
 function stop() {
   if (timer) {
     clearInterval(timer);
     timer = null;
+    intervalMs = 0;
   }
 }
 
@@ -417,12 +443,15 @@ async function boot() {
   } else {
     console.warn(`[outreach] mailbox ${status.user} NOT reachable: ${status.last_error}`);
   }
-  start();
+  // Pick up a saved cadence instead of always booting on the env default.
+  const limits = await campaign.getLimits().catch(() => null);
+  start(limits && limits.tick_ms);
 }
 
 /** Everything the Cold Mail dashboard needs, in one call. */
 async function overview() {
   const settings = await campaign.getSettings();
+  const limits = await campaign.getLimits();
   const campaigns = await campaign.listCampaigns();
 
   const sum = (pick) => campaigns.reduce((n, c) => n + (pick(c.stats) || 0), 0);
@@ -469,7 +498,10 @@ async function overview() {
     last_tick: lastTick,
     scheduler_running: Boolean(timer),
     sending_now: running,
-    limits: {
+    // Effective values the scheduler is actually running with…
+    limits,
+    // …and the env defaults, so the UI can offer a "reset to default".
+    limit_defaults: {
       daily_cap: config.mail.dailyCap,
       min_gap_ms: config.mail.minGapMs,
       tick_ms: config.mail.tickMs,

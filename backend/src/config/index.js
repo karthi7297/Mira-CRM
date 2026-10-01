@@ -36,7 +36,7 @@ module.exports = {
     mediumOverdueDays: 7,
   },
 
-  /**
+/**
    * Mira AI assistant (OpenRouter). Free models only — the primary is tried
    * first and the fallback catches rate-limits/errors, so a 429 on one model
    * does not take the widget down. The key stays server-side; the browser only
@@ -57,7 +57,12 @@ module.exports = {
   },
 
   /**
-   * Outbound mail for cold outreach. Gmail works with an App Password:
+   * Outbound mail. Serves two callers that authenticate independently:
+   *  - cold outreach (SMTP_* below) via src/services/email.service.js
+   *  - account credentials emails (EMAIL_USER/EMAIL_APP_PASSWORD) via
+   *    src/config/mailer.js, which reads those env vars directly
+   *
+   * Gmail works with an App Password:
    *   SMTP_HOST=smtp.gmail.com  SMTP_PORT=465  SMTP_SECURE=true
    *   SMTP_USER=you@gmail.com   SMTP_PASS=<16-char app password>
    *
@@ -66,6 +71,10 @@ module.exports = {
    * rather than pretending. Nothing here is ever logged.
    */
   mail: {
+    // Branding/links for the credentials emails.
+    appName: process.env.APP_NAME || 'Mira',
+    loginUrl: process.env.APPLICATION_LOGIN_URL || 'http://localhost:5173/login',
+
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT || 465),
     secure: String(process.env.SMTP_SECURE || 'true') !== 'false',

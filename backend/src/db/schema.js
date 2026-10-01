@@ -21,6 +21,7 @@ function apply(db) {
     role          TEXT NOT NULL CHECK (role IN ('ORGANIZATION','INSTITUTION','TRAINER','STUDENT')),
     customer_id   TEXT REFERENCES customers(id),
     status        TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','BLOCKED')),
+    must_change_password INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at    TEXT
   );

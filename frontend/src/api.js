@@ -18,6 +18,8 @@ async function req(path, opts = {}) {
 }
 export const api = {
   login: (email, password) => req('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  changePassword: (b) => req('/auth/change-password', { method: 'POST', body: JSON.stringify(b) }),
+  resendCredentials: (id) => req(`/users/${encodeURIComponent(id)}/resend-credentials`, { method: 'POST' }),
   dashboard: () => req('/dashboard'),
   leads: (q = '') => req('/leads' + q),
   lead: (id) => req('/leads/' + id),

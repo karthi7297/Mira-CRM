@@ -1,18 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, toast, toastError } from '../api';
-
-/* Client-side field validation shared by both public forms. */
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-function validateEnquiry(f) {
-  const errs = {};
-  if (!String(f.organization || '').trim()) errs.organization = 'College / organization name is required';
-  if (!String(f.contact_person || '').trim()) errs.contact_person = 'Your name is required';
-  if (f.email && !EMAIL_RE.test(f.email.trim())) errs.email = 'Enter a valid email address';
-  if (f.phone && !/^[+()\-.\s\d]{7,20}$/.test(String(f.phone))) errs.phone = 'Enter a valid phone number';
-  return errs;
-}
+import { check, ok, req, email, phone, int, notBlank, minLen, Ferr } from '../validate';
 
 // Public (no login): outsider enquiry → AUTO lead in org pipeline (FLOW W)
 export function Enquire() {
@@ -20,9 +9,16 @@ export function Enquire() {
   const [fieldErr, setFieldErr] = useState({}); const [busy, setBusy] = useState(false);
   const send = async (e) => {
     e.preventDefault(); setErr('');
-    const errs = validateEnquiry(f);
+    const errs = check({
+      organization: [req('College / organization name')],
+      contact_person: [req('Your name')],
+      email: [email()],
+      phone: [phone()],
+      requirement: [notBlank('Requirement')],
+      expected_students: [int('Expected students', { min: 1 })],
+    }, f);
     setFieldErr(errs);
-    if (Object.keys(errs).length) return;
+    if (!ok(errs)) return;
     setBusy(true);
     try { setDone(await api.enquire(f)); setF({}); toast('Enquiry sent successfully'); }
     catch (ex) { setErr(ex.message); toastError(ex.message); }
@@ -53,8 +49,14 @@ export function Enquire() {
             <input placeholder="Phone" value={f.phone || ''} onChange={e => setF({ ...f, phone: e.target.value })} aria-invalid={!!fieldErr.phone} />
             {fe('phone')}
           </div>
-          <input placeholder="What training do you need?" value={f.requirement || ''} onChange={e => setF({ ...f, requirement: e.target.value })} />
-          <input placeholder="Approx. students" type="number" min="1" value={f.expected_students || ''} onChange={e => setF({ ...f, expected_students: +e.target.value })} />
+          <div>
+            <input placeholder="What training do you need?" value={f.requirement || ''} onChange={e => setF({ ...f, requirement: e.target.value })} aria-invalid={!!fieldErr.requirement} />
+            {fe('requirement')}
+          </div>
+          <div>
+            <input placeholder="Approx. students" type="number" min="1" value={f.expected_students || ''} onChange={e => setF({ ...f, expected_students: +e.target.value })} aria-invalid={!!fieldErr.expected_students} />
+            {fe('expected_students')}
+          </div>
           <button className="btn" disabled={busy}>{busy ? 'Sending…' : 'Send Enquiry'}</button>
         </form>}
       <p style={{ fontSize: 12 }}><Link to="/login">← Back to login</Link> · <Link to="/verify">Verify a certificate</Link></p>
@@ -65,9 +67,13 @@ export function Enquire() {
 // Public (no login): certificate authenticity check (FLOW Y)
 export function Verify() {
   const [code, setCode] = useState(''); const [r, setR] = useState(null); const [err, setErr] = useState('');
+  const [fe, setFe] = useState({});
   const [busy, setBusy] = useState(false);
   const go = async (e) => {
     e.preventDefault(); setErr(''); setR(null);
+    const errs = check({ code: [req('Verification code'), minLen(6, 'Verification code')] }, { code });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (!code.trim()) { setErr('Enter the certificate code printed on the document'); return; }
     setBusy(true);
     try { setR(await api.verifyCert(code.trim())); }
@@ -80,7 +86,10 @@ export function Verify() {
       <p style={{ color: '#64748b', fontSize: 13 }}>Enter the code printed on a Rampex certificate.</p>
       {err && <div className="err">{err}</div>}
       <form onSubmit={go} style={{ display: 'flex', gap: 8 }}>
-        <input required placeholder="e.g. RNX-2026-0001" value={code} onChange={e => setCode(e.target.value)} style={{ flex: 1, minWidth: 0, padding: '9px 12px', border: '1px solid #e5e9f2', borderRadius: 8 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input required placeholder="e.g. RNX-2026-0001" value={code} onChange={e => setCode(e.target.value)} aria-invalid={!!fe.code} style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e9f2', borderRadius: 8 }} />
+          <Ferr fe={fe} name="code" />
+        </div>
         <button className="btn" disabled={busy}>{busy ? 'Checking…' : 'Verify'}</button>
       </form>
       {r && <div className="cert-paper" style={{ marginTop: 14 }}>

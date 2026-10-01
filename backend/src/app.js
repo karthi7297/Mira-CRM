@@ -14,6 +14,7 @@ const dashboardService = require('./services/dashboard.service');
 const financeService = require('./services/finance.service');
 const learningService = require('./services/learning.service');
 const showcaseService = require('./services/showcase.service');
+const credentialsService = require('./services/credentials.service');
 const assistantService = require('./services/assistant.service');
 const insightsService = require('./services/insights.service');
 const campaignService = require('./services/campaign.service');
@@ -103,12 +104,14 @@ function createApp() {
   app.post('/api/login', authLimiter, validate({ body: { email: 'email', password: '?string' } }),
     asyncHandler(async (req, res) => ok(res, await authService.login(req.body || {}))));
   app.get('/api/users', requireOrg, asyncHandler(async (req, res) => ok(res, await authService.listUsers())));
-
-  // ---------- Self-service profile (any signed-in user) ----------
-  app.get('/api/profile', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await authService.getProfile(req.scope.user_id))));
-  app.patch('/api/profile', requireAuth, validate({ body: { name: '?string', email: '?email', phone: '?phone', password: '?string' } }),
-    asyncHandler(async (req, res) => ok(res, await authService.updateProfile(req.scope.user_id, req.body || {}))));
+  // First-login password change for accounts issued with a temporary password.
+  app.post('/api/auth/change-password', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await credentialsService.changePassword(req.scope, req.body || {}))));
+  // Rotate the temp password + re-send the credentials email (§9). Accepts a
+  // users.id, trainers.id or students.id; Organization or the owning institution.
+  app.post('/api/users/:id/resend-credentials', requireRole('organization', 'institution'),
+    asyncHandler(async (req, res) =>
+      ok(res, await credentialsService.resendCredentials(req.scope, req.params.id))));
 
   // ---------- Dashboard (scope-aware) ----------
   app.get('/api/dashboard', requireAuth, asyncHandler(async (req, res) => ok(res, await dashboardService.dashboard(req.scope))));
@@ -158,12 +161,15 @@ function createApp() {
   app.delete('/api/programs/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.deleteProgram(req.params.id))));
   app.get('/api/trainers', requireAuth, asyncHandler(async (req, res) =>
-    ok(res, await trainingService.listTrainers({ archived: req.query.archived === '1' }))));
+    ok(res, await trainingService.listTrainers())));
+
   // Trainer 360 for Rampex: profile + batches + students + payouts + leave.
   app.get('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.getTrainerDetail(req.params.id))));
+
   app.post('/api/trainers', requireOrg, validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
-    ok(res, await trainingService.createTrainer(req.body || {}))));
+    ok(res, await trainingService.createTrainer(req.scope, req.body || {}))));
+
   app.patch('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.updateTrainer(req.params.id, req.body || {}))));
   app.delete('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>

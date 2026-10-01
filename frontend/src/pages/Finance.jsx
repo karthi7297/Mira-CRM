@@ -4,7 +4,7 @@ import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { useAuth } from '../auth';
 import { BarChart, LineChart, PieChart, KPICard, AttendanceBar } from '../widgets';
 import { printExecutiveReport, printInvoice, printQuotation, printReceipt } from '../report';
-import { useListControls, ListToolbar, Pager, SortHeader, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, useSavedViews, SavedViewsBar, ListState, DateRange, ArchiveToggle } from '../listkit';
+import { check, ok, Ferr, req, num, int } from '../validate';
 
 export function Quotations() {
   const { user } = useAuth();
@@ -14,6 +14,7 @@ export function Quotations() {
   const [archived, setArchived] = useState(false);
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
+  const [fe, setFe] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('ALL');
@@ -40,6 +41,15 @@ export function Quotations() {
 
   const create = async (e) => {
     e.preventDefault();
+    const errs = check({
+      customer_id: [req('Client institution')],
+      program: [req('Training program')],
+      qty: [int('Qty', { min: 1 })],
+      rate: [req('Rate'), num('Rate', { min: 0.01 })],
+      discount: [num('Discount', { min: 0 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!f.customer_id) { setMsg('Select a client institution'); return; }
     if (!String(f.program || '').trim()) { setMsg('Program description is required'); return; }
@@ -267,24 +277,35 @@ export function Quotations() {
             <h3>Create Quotation</h3>
             <form onSubmit={create} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Client Institution *</label>
-              <select required value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
-                <option value="">Select customer…</option>
-                {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div>
+                <select required aria-invalid={!!fe.customer_id} value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
+                  <option value="">Select customer…</option>
+                  {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Ferr fe={fe} name="customer_id" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Training Program *</label>
-              <input required placeholder="e.g. AI & Machine Learning Specialization" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} />
+              <div>
+                <input required placeholder="e.g. AI & Machine Learning Specialization" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} aria-invalid={!!fe.program} />
+                <Ferr fe={fe} name="program" />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Estimated Students (Qty)</label>
-                  <input placeholder="Qty" type="number" value={f.qty || ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
+                  <input placeholder="Qty" type="number" value={f.qty || ''} onChange={(e) => setF({ ...f, qty: e.target.value })} aria-invalid={!!fe.qty} />
+                  <Ferr fe={fe} name="qty" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Fee per Student / Rate (₹)</label>
-                  <input placeholder="Rate" type="number" value={f.rate || ''} onChange={(e) => setF({ ...f, rate: e.target.value })} />
+                  <input placeholder="Rate" type="number" value={f.rate || ''} onChange={(e) => setF({ ...f, rate: e.target.value })} aria-invalid={!!fe.rate} />
+                  <Ferr fe={fe} name="rate" />
                 </div>
               </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Discount (₹)</label>
-              <input placeholder="Optional discount" type="number" value={f.discount || ''} onChange={(e) => setF({ ...f, discount: e.target.value })} />
+              <div>
+                <input placeholder="Optional discount" type="number" value={f.discount || ''} onChange={(e) => setF({ ...f, discount: e.target.value })} aria-invalid={!!fe.discount} />
+                <Ferr fe={fe} name="discount" />
+              </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Quotation'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
@@ -356,6 +377,7 @@ export function Invoices() {
   const [busy, setBusy] = useState(false);
   const [custs, setCusts] = useState([]);
   const [f, setF] = useState({});
+  const [fe, setFe] = useState({});
   const [msg, setMsg] = useState('');
   const [filter, setFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
@@ -381,6 +403,15 @@ export function Invoices() {
 
   const create = async (e) => {
     e.preventDefault();
+    const errs = check({
+      customer_id: [req('Client institution')],
+      program: [req('Training program')],
+      qty: [int('Quantity', { min: 1 })],
+      rate: [req('Rate'), num('Rate', { min: 0.01 })],
+      discount: [num('Discount', { min: 0 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!f.customer_id) { setMsg('Select a client institution'); return; }
     if (!String(f.program || '').trim()) { setMsg('Program description is required'); return; }
@@ -404,6 +435,12 @@ export function Invoices() {
 
   const handlePay = async (e) => {
     e.preventDefault();
+    const errs = check({
+      amount: [req('Amount'), num('Amount', { min: 0.01, max: +payModal.outstanding })],
+      date: [req('Date')],
+    }, { ...payForm, date: payForm.date || new Date().toISOString().slice(0, 10) });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!(+payForm.amount > 0)) { setMsg('Payment amount must be greater than 0'); return; }
     if (+payForm.amount > payModal.outstanding) { setMsg('Payment cannot exceed the outstanding balance'); return; }
@@ -617,26 +654,35 @@ export function Invoices() {
             <h3>Create Tax Invoice</h3>
             <form onSubmit={create} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Client Institution *</label>
-              <select required value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
-                <option value="">Select customer…</option>
-                {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div>
+                <select required aria-invalid={!!fe.customer_id} value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
+                  <option value="">Select customer…</option>
+                  {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Ferr fe={fe} name="customer_id" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Training Program *</label>
-              <input required placeholder="Program description" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} />
+              <div>
+                <input required placeholder="Program description" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} aria-invalid={!!fe.program} />
+                <Ferr fe={fe} name="program" />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Quantity</label>
-                  <input placeholder="Qty" type="number" value={f.qty || ''} onChange={(e) => setF({ ...f, qty: e.target.value })} />
+                  <input placeholder="Qty" type="number" value={f.qty || ''} onChange={(e) => setF({ ...f, qty: e.target.value })} aria-invalid={!!fe.qty} />
+                  <Ferr fe={fe} name="qty" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Rate (₹)</label>
-                  <input placeholder="Rate" type="number" value={f.rate || ''} onChange={(e) => setF({ ...f, rate: e.target.value })} />
+                  <input placeholder="Rate" type="number" value={f.rate || ''} onChange={(e) => setF({ ...f, rate: e.target.value })} aria-invalid={!!fe.rate} />
+                  <Ferr fe={fe} name="rate" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Discount (₹)</label>
-                  <input placeholder="Discount" type="number" value={f.discount || ''} onChange={(e) => setF({ ...f, discount: e.target.value })} />
+                  <input placeholder="Discount" type="number" value={f.discount || ''} onChange={(e) => setF({ ...f, discount: e.target.value })} aria-invalid={!!fe.discount} />
+                  <Ferr fe={fe} name="discount" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Due Date</label>
@@ -662,13 +708,17 @@ export function Invoices() {
             </p>
             <form onSubmit={handlePay} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Amount (₹) *</label>
-              <input
-                required
-                type="number"
-                max={payModal.outstanding}
-                value={payForm.amount || ''}
-                onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  type="number"
+                  max={payModal.outstanding}
+                  value={payForm.amount || ''}
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                  aria-invalid={!!fe.amount}
+                />
+                <Ferr fe={fe} name="amount" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Payment Method</label>
               <select value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
                 <option>Bank Transfer</option>
@@ -677,11 +727,15 @@ export function Invoices() {
                 <option>Cash</option>
               </select>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Payment Date</label>
-              <input
-                type="date"
-                value={payForm.date || new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setPayForm({ ...payForm, date: e.target.value })}
-              />
+              <div>
+                <input
+                  type="date"
+                  value={payForm.date || new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setPayForm({ ...payForm, date: e.target.value })}
+                  aria-invalid={!!fe.date}
+                />
+                <Ferr fe={fe} name="date" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Transaction / UTR Reference</label>
               <input
                 placeholder="e.g. NEFT-998812 / UPI Ref"
@@ -704,6 +758,7 @@ export function InvoiceDetail() {
   const { id } = useParams();
   const [inv, setInv] = useState(null);
   const [msg, setMsg] = useState('');
+  const [fe, setFe] = useState({});
   const [pay, setPay] = useState({ method: 'Bank Transfer' });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -713,6 +768,12 @@ export function InvoiceDetail() {
 
   const record = async (e) => {
     e.preventDefault();
+    const errs = check({
+      amount: [req('Amount'), num('Amount', { min: 0.01, max: +inv.outstanding })],
+      date: [req('Date')],
+    }, { ...pay, date: pay.date || new Date().toISOString().slice(0, 10) });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!(+pay.amount > 0)) { setMsg('Payment amount must be greater than 0'); return; }
     if (+pay.amount > inv.outstanding) { setMsg('Payment cannot exceed the outstanding balance'); return; }
@@ -810,13 +871,19 @@ export function InvoiceDetail() {
             <h3>Record Payment</h3>
             <form onSubmit={record} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Amount (₹) *</label>
-              <input required max={inv.outstanding} placeholder="Amount *" type="number" value={pay.amount || ''} onChange={(e) => setPay({ ...pay, amount: e.target.value })} />
+              <div>
+                <input required max={inv.outstanding} placeholder="Amount *" type="number" value={pay.amount || ''} onChange={(e) => setPay({ ...pay, amount: e.target.value })} aria-invalid={!!fe.amount} />
+                <Ferr fe={fe} name="amount" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Method</label>
               <select value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>
                 <option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option>Cash</option>
               </select>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Date</label>
-              <input type="date" value={pay.date || new Date().toISOString().slice(0, 10)} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
+              <div>
+                <input type="date" value={pay.date || new Date().toISOString().slice(0, 10)} onChange={(e) => setPay({ ...pay, date: e.target.value })} aria-invalid={!!fe.date} />
+                <Ferr fe={fe} name="date" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Reference</label>
               <input placeholder="NEFT / UTR / Cheque No" value={pay.reference || ''} onChange={(e) => setPay({ ...pay, reference: e.target.value })} />
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -1080,6 +1147,7 @@ export function Expenses() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({ category: 'Trainer' });
+  const [fe, setFe] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [catFilter, setCatFilter] = useState('ALL');
@@ -1117,6 +1185,13 @@ export function Expenses() {
 
   const create = async (e) => {
     e.preventDefault();
+    const errs = check({
+      date: [req('Date')],
+      vendor: [req('Vendor / payee')],
+      amount: [req('Amount'), num('Amount', { min: 0.01 })],
+    }, { ...f, date: f.date || new Date().toISOString().slice(0, 10) });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!(+f.amount > 0)) { setMsg('Amount must be greater than 0'); return; }
     if (!String(f.vendor || '').trim()) { setMsg('Vendor / payee is required'); return; }
@@ -1278,28 +1353,23 @@ export function Expenses() {
       <div className="card" style={{ margin: '20px 0' }}>
         <h4 style={{ margin: '0 0 12px' }}>Record New Expense</h4>
         <form onSubmit={create} className="form" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-          <input type="date" value={f.date || new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, date: e.target.value })} />
+          <div>
+            <input type="date" value={f.date || new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, date: e.target.value })} aria-invalid={!!fe.date} />
+            <Ferr fe={fe} name="date" />
+          </div>
           <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
             <option>Trainer</option><option>Venue</option><option>Travel</option><option>Accommodation</option>
             <option>Materials</option><option>Marketing</option><option>Operations</option><option>Other</option>
           </select>
-          <input placeholder="Vendor / Payee" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} />
+          <div>
+            <input placeholder="Vendor / Payee" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} aria-invalid={!!fe.vendor} />
+            <Ferr fe={fe} name="vendor" />
+          </div>
           <input placeholder="Description" value={f.description || ''} onChange={(e) => setF({ ...f, description: e.target.value })} />
-          <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-          {/* Optional linkage (audit E5 / D21) — attribute the cost to a customer,
-              batch, or trainer so expenses roll up per account / delivery. */}
-          <select aria-label="Customer (optional)" value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })}>
-            <option value="">Link customer… (optional)</option>
-            {custs.map((c) => <option key={c.id} value={c.id}>{c.name || c.id}</option>)}
-          </select>
-          <select aria-label="Batch (optional)" value={f.batch_id || ''} onChange={(e) => setF({ ...f, batch_id: e.target.value })}>
-            <option value="">Link batch… (optional)</option>
-            {batches.map((b) => <option key={b.id} value={b.id}>{b.id}{b.program_name ? ` · ${b.program_name}` : ''}</option>)}
-          </select>
-          <select aria-label="Trainer (optional)" value={f.trainer_id || ''} onChange={(e) => setF({ ...f, trainer_id: e.target.value })}>
-            <option value="">Link trainer… (optional)</option>
-            {trainers.map((t) => <option key={t.id} value={t.id}>{t.name || t.id}</option>)}
-          </select>
+          <div>
+            <input required placeholder="Amount (₹)" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} aria-invalid={!!fe.amount} />
+            <Ferr fe={fe} name="amount" />
+          </div>
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : '+ Add Expense'}</button>
         </form>
       </div>
@@ -1416,6 +1486,7 @@ export function Expenses() {
 export function TrainerFinance() {
   const [d, setD] = useState(null);
   const [f, setF] = useState({ category: 'Travel' });
+  const [fe, setFe] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -1424,6 +1495,11 @@ export function TrainerFinance() {
 
   const claim = async (e) => {
     e.preventDefault();
+    const errs = check({
+      amount: [req('Amount'), num('Amount', { min: 0.01 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!(+f.amount > 0)) { setMsg('Claim amount must be greater than 0'); return; }
     setBusy(true);
@@ -1477,7 +1553,10 @@ export function TrainerFinance() {
             </select>
             <input placeholder="Vendor" value={f.vendor || ''} onChange={(e) => setF({ ...f, vendor: e.target.value })} />
             <input placeholder="Description" value={f.description || ''} onChange={(e) => setF({ ...f, description: e.target.value })} />
-            <input required placeholder="Amount" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+            <div>
+              <input required placeholder="Amount" type="number" value={f.amount || ''} onChange={(e) => setF({ ...f, amount: e.target.value })} aria-invalid={!!fe.amount} />
+              <Ferr fe={fe} name="amount" />
+            </div>
             <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Filing…' : 'File Claim'}</button></span>
           </form>
         </div>

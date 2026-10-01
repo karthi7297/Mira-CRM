@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr, toast, toastError } from '../api';
 import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
-import { useListControls, ListToolbar, Pager, SortHeader, useBulkSelection, BulkBar, SelectAllTh, downloadCsv, useSavedViews, SavedViewsBar, DateRange, ArchiveToggle } from '../listkit';
+import { check, ok, Ferr, req, email, phone, num, int } from '../validate';
 
 function filterInstitutionLeaves(leaves, customerId) {
   return leaves.filter(l => l.customer_id === customerId);
@@ -64,6 +64,7 @@ export function Leads() {
   const [view, setView] = useState('kanban');
   const [show, setShow] = useState(false);
   const [f, setF] = useState({});
+  const [fe, setFe] = useState({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [archived, setArchived] = useState(false);
@@ -87,6 +88,16 @@ export function Leads() {
 
   const create = async (e) => {
     e.preventDefault();
+    const errs = check({
+      organization: [req('Organization')],
+      contact_person: [req('Contact person')],
+      email: [email()],
+      phone: [phone()],
+      expected_students: [int('Expected students', { min: 0 })],
+      expected_value: [num('Expected value', { min: 0 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!String(f.organization || '').trim()) { setMsg('Organization is required'); return; }
     if (!String(f.contact_person || '').trim()) { setMsg('Contact person is required'); return; }
@@ -100,6 +111,7 @@ export function Leads() {
       await api.createLead(f);
       setShow(false);
       setF({});
+      setFe({});
       toast('Lead created successfully');
       load();
     } catch (ex) {
@@ -387,16 +399,42 @@ export function Leads() {
           <div>
             <h3>Create New Lead</h3>
             <form onSubmit={create} className="form">
-              <input required placeholder="Organization *" value={f.organization || ''} onChange={(e) => setF({ ...f, organization: e.target.value })} />
-              <input required placeholder="Contact Person *" value={f.contact_person || ''} onChange={(e) => setF({ ...f, contact_person: e.target.value })} />
-              <input placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} />
-              <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
-              <input placeholder="Requirement" value={f.requirement || ''} onChange={(e) => setF({ ...f, requirement: e.target.value })} />
-              <input placeholder="Program" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} />
-              <input placeholder="Expected Students" type="number" value={f.expected_students || ''} onChange={(e) => setF({ ...f, expected_students: +e.target.value })} />
-              <input placeholder="Expected Value" type="number" value={f.expected_value || ''} onChange={(e) => setF({ ...f, expected_value: +e.target.value })} />
-              <input placeholder="Source" value={f.source || ''} onChange={(e) => setF({ ...f, source: e.target.value })} />
-              <input placeholder="Owner" value={f.owner || ''} onChange={(e) => setF({ ...f, owner: e.target.value })} />
+              <div>
+                <input required placeholder="Organization *" value={f.organization || ''} onChange={(e) => setF({ ...f, organization: e.target.value })} aria-invalid={!!fe.organization} />
+                <Ferr fe={fe} name="organization" />
+              </div>
+              <div>
+                <input required placeholder="Contact Person *" value={f.contact_person || ''} onChange={(e) => setF({ ...f, contact_person: e.target.value })} aria-invalid={!!fe.contact_person} />
+                <Ferr fe={fe} name="contact_person" />
+              </div>
+              <div>
+                <input placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} aria-invalid={!!fe.email} />
+                <Ferr fe={fe} name="email" />
+              </div>
+              <div>
+                <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-invalid={!!fe.phone} />
+                <Ferr fe={fe} name="phone" />
+              </div>
+              <div>
+                <input placeholder="Requirement" value={f.requirement || ''} onChange={(e) => setF({ ...f, requirement: e.target.value })} />
+              </div>
+              <div>
+                <input placeholder="Program" value={f.program || ''} onChange={(e) => setF({ ...f, program: e.target.value })} />
+              </div>
+              <div>
+                <input placeholder="Expected Students" type="number" value={f.expected_students || ''} onChange={(e) => setF({ ...f, expected_students: +e.target.value })} aria-invalid={!!fe.expected_students} />
+                <Ferr fe={fe} name="expected_students" />
+              </div>
+              <div>
+                <input placeholder="Expected Value" type="number" value={f.expected_value || ''} onChange={(e) => setF({ ...f, expected_value: +e.target.value })} aria-invalid={!!fe.expected_value} />
+                <Ferr fe={fe} name="expected_value" />
+              </div>
+              <div>
+                <input placeholder="Source" value={f.source || ''} onChange={(e) => setF({ ...f, source: e.target.value })} />
+              </div>
+              <div>
+                <input placeholder="Owner" value={f.owner || ''} onChange={(e) => setF({ ...f, owner: e.target.value })} />
+              </div>
               <span>
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : 'Create Lead'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
@@ -443,6 +481,7 @@ export function LeadDetail() {
   const [l, setL] = useState(null);
   const [msg, setMsg] = useState('');
   const [fu, setFu] = useState({ method: 'Call' });
+  const [fe, setFe] = useState({});
 
   const load = () => api.lead(id).then(setL).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, [id]);
@@ -455,7 +494,15 @@ export function LeadDetail() {
   };
   const addFu = async (e) => {
     e.preventDefault();
-    try { await api.followup(id, fu); setFu({ method: 'Call' }); setMsg('✓ Follow-up saved'); load(); }
+    const errs = check({
+      date: [req('Date')],
+      method: [req('Method')],
+      notes: [req('Notes')],
+      next_action: [req('Next action')],
+    }, fu);
+    setFe(errs);
+    if (!ok(errs)) return;
+    try { await api.followup(id, fu); setFu({ method: 'Call' }); setFe({}); setMsg('✓ Follow-up saved'); load(); }
     catch (ex) { setMsg(ex.message); }
   };
   const convert = async () => {
@@ -535,12 +582,24 @@ export function LeadDetail() {
         <div className="card">
           <h4>Follow-ups</h4>
           <form onSubmit={addFu} className="form">
-            <input type="date" value={fu.date || ''} onChange={(e) => setFu({ ...fu, date: e.target.value })} />
-            <select value={fu.method} onChange={(e) => setFu({ ...fu, method: e.target.value })}>
-              <option>Call</option><option>Email</option><option>Visit</option><option>WhatsApp</option>
-            </select>
-            <input placeholder="Notes" value={fu.notes || ''} onChange={(e) => setFu({ ...fu, notes: e.target.value })} />
-            <input placeholder="Next action" value={fu.next_action || ''} onChange={(e) => setFu({ ...fu, next_action: e.target.value })} />
+            <div>
+              <input type="date" value={fu.date || ''} onChange={(e) => setFu({ ...fu, date: e.target.value })} aria-invalid={!!fe.date} />
+              <Ferr fe={fe} name="date" />
+            </div>
+            <div>
+              <select value={fu.method} onChange={(e) => setFu({ ...fu, method: e.target.value })} aria-invalid={!!fe.method}>
+                <option>Call</option><option>Email</option><option>Visit</option><option>WhatsApp</option>
+              </select>
+              <Ferr fe={fe} name="method" />
+            </div>
+            <div>
+              <input placeholder="Notes" value={fu.notes || ''} onChange={(e) => setFu({ ...fu, notes: e.target.value })} aria-invalid={!!fe.notes} />
+              <Ferr fe={fe} name="notes" />
+            </div>
+            <div>
+              <input placeholder="Next action" value={fu.next_action || ''} onChange={(e) => setFu({ ...fu, next_action: e.target.value })} aria-invalid={!!fe.next_action} />
+              <Ferr fe={fe} name="next_action" />
+            </div>
             <span><button className="btn" type="submit">Add Follow-up</button></span>
           </form>
 

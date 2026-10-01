@@ -341,6 +341,22 @@ async function clearDb(db) {
 }
 
 /**
+ * Column migrations for databases created before a column existed —
+ * CREATE TABLE IF never alters an existing table. Dialect-neutral ALTER; a
+ * duplicate-column error simply means the column is already there.
+ */
+async function migrate(db) {
+  try {
+    await db.exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
+  } catch (e) {
+    const msg = String((e && e.message) || e);
+    if (!/duplicate column|already exists|1060/i.test(msg)) {
+      console.warn(`[db] migration warning (must_change_password): ${msg}`);
+    }
+  }
+}
+
+/**
  * Starter cold-mail templates — idempotent, so it fills an empty table on a
  * fresh install and does nothing once the organization has written its own.
  * Written to be usable as-is: real copy, real follow-up cadence.
@@ -398,9 +414,10 @@ If {{program}} is not a fit for {{organization}} this year, just say the word an
   console.log('[db] seeded 3 starter cold-mail templates');
 }
 
-/** Boot: apply schema, seed demo rows when empty. */
+/** Boot: apply schema, migrate columns, seed demo rows and templates when empty. */
 async function initialize(db) {
   await applySchema(db);
+  await migrate(db);
   const c = await db.count('SELECT COUNT(*) FROM users');
   if (c === 0) {
     await db.transaction((tx) => seedDemoData(tx));

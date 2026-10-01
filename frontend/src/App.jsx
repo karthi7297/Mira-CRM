@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, NAV } from './auth';
+import ConfirmHost from './Confirm';
+import { api } from './api';
+import { check, ok, req, minLen, matches, Ferr } from './validate';
 import Layout from './Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -25,9 +29,101 @@ function College() {
   return <Customer360 fixedId={user.customer_id} />;
 }
 
+/**
+ * Blocks the whole app until a temporary password (issued with the credentials
+ * email) is replaced — users.must_change_password (§10). No route renders
+ * behind this gate while the flag is set.
+ */
+function ForcePasswordChange() {
+  const { user, login, logout } = useAuth();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [fe, setFe] = useState({});
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    const errs = check({
+      current: [req('Current password')],
+      next: [req('New password'), minLen(6, 'New password')],
+      confirm: [matches(next, 'Passwords')],
+    }, { current, next, confirm });
+    setFe(errs);
+    if (!ok(errs)) return;
+    if (next !== confirm) { setErr('New passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      await api.changePassword({ currentPassword: current, newPassword: next });
+      login({ ...user, mustChangePassword: false });
+    } catch (ex) {
+      setErr(ex.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f1f5f9', padding: 24 }}>
+      <div className="card" style={{ width: 'min(100%, 460px)', padding: 28 }}>
+        <h2 style={{ marginTop: 0 }}>Set your password</h2>
+        <p className="meta" style={{ marginTop: 0 }}>
+          Your account was created with a temporary password. Choose a new password to continue.
+        </p>
+        {err && <div className="err">{err}</div>}
+        <form onSubmit={submit} className="form col-1">
+          <div>
+            <input
+              type="password"
+              placeholder="Temporary password"
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              aria-invalid={!!fe.current}
+              required
+            />
+            <Ferr fe={fe} name="current" />
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="New password (min 6 characters)"
+              autoComplete="new-password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              aria-invalid={!!fe.next}
+              required
+            />
+            <Ferr fe={fe} name="next" />
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              aria-invalid={!!fe.confirm}
+              required
+            />
+            <Ferr fe={fe} name="confirm" />
+          </div>
+          <span style={{ display: 'flex', gap: 10 }}>
+            <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
+            <button className="btn ghost" type="button" onClick={logout}>Sign out</button>
+          </span>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function Guard({ children, path }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
+  if (user.mustChangePassword) return <ForcePasswordChange />;
+  if (path === '/' && user.role === 'student') return <Navigate to="/learning" replace />;
   const nav = NAV.find(n => n.to === path);
   if (nav && !nav.roles.includes(user.role)) return <div className="err">Access Denied — {user.role} cannot open this module.</div>;
   if (path === '/learning' && user.role !== 'student') return <div className="err">Access Denied.</div>;
@@ -78,6 +174,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      <ConfirmHost />
     </AuthProvider>
   );
 }

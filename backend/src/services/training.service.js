@@ -137,14 +137,28 @@ async function listTrainers({ archived = false } = {}) {
   return db.query(`SELECT id, name, expertise, email, phone FROM trainers WHERE ${arch} ORDER BY id`);
 }
 
-async function createTrainer(body = {}) {
+/**
+ * Trainers are Rampex staff: creation is Organization-only (route requireOrg).
+ * After the row is stored, a login account is provisioned and the credentials
+ * email sent (best-effort — the response carries emailSent/message, never the
+ * temporary password).
+ */
+async function createTrainer(scope, body = {}) {
   requireFields(body, ['name']);
   const id = await nid(db, 'TR', 'trainers');
   await db.run(
     'INSERT INTO trainers (id, name, expertise, email, phone) VALUES (?,?,?,?,?)',
     [id, str(body.name), str(body.expertise) || null, str(body.email) || null, str(body.phone) || null]
   );
-  return db.get('SELECT * FROM trainers WHERE id = ?', [id]);
+  const trainer = await db.get('SELECT * FROM trainers WHERE id = ?', [id]);
+  const outcome = await credentials.issueCredentials('trainer', {
+    row: trainer,
+    linkTable: 'trainers',
+    customerId: null,
+  });
+  // Re-read so the response carries the freshly linked user_id.
+  const fresh = await db.get('SELECT * FROM trainers WHERE id = ?', [id]);
+  return { ...fresh, emailSent: outcome.emailSent, message: outcome.message };
 }
 
 async function updateTrainer(id, body = {}) {
@@ -152,14 +166,24 @@ async function updateTrainer(id, body = {}) {
   if (!trainer) throw notFound('Trainer not found');
   const name = body.name !== undefined ? str(body.name) : trainer.name;
   if (!isNonEmpty(name)) throw badRequest('Trainer name is required');
+  const email = body.email !== undefined ? str(body.email) : trainer.email;
   await db.run(
     'UPDATE trainers SET name = ?, expertise = ?, email = ?, phone = ? WHERE id = ?',
     [name,
       body.expertise !== undefined ? str(body.expertise) || null : trainer.expertise,
-      body.email !== undefined ? str(body.email) || null : trainer.email,
+      email,
       body.phone !== undefined ? str(body.phone) || null : trainer.phone,
       id]
   );
+  // The login username IS the email — keep the linked account in sync so the
+  // trainer can still sign in after an email edit. A clash keeps the old one.
+  if (trainer.user_id && email) {
+    try {
+      await db.run('UPDATE users SET email = ? WHERE id = ?', [String(email).trim().toLowerCase(), trainer.user_id]);
+    } catch (e) {
+      console.warn(`[trainers] could not sync login email for ${id}: ${e.message}`);
+    }
+  }
   return db.get('SELECT id, name, expertise, email, phone FROM trainers WHERE id = ?', [id]);
 }
 
@@ -168,7 +192,7 @@ async function updateTrainer(id, body = {}) {
  * while work is booked against them rather than orphaning that history.
  */
 async function deleteTrainer(id) {
-  const trainer = await db.get('SELECT id FROM trainers WHERE id = ?', [id]);
+  const trainer = await db.get('SELECT id, user_id FROM trainers WHERE id = ?', [id]);
   if (!trainer) throw notFound('Trainer not found');
   const batches = await db.count('SELECT COUNT(*) FROM batches WHERE trainer_id = ?', [id]);
   if (batches > 0) {
@@ -179,6 +203,8 @@ async function deleteTrainer(id) {
     throw conflict(`Trainer has ${expenses} expense entr${expenses === 1 ? 'y' : 'ies'} booked against them — cannot delete`);
   }
   await db.run('DELETE FROM trainers WHERE id = ?', [id]);
+  // Drop the auto-created login too — a deleted trainer must not still sign in.
+  if (trainer.user_id) await db.run('DELETE FROM users WHERE id = ?', [trainer.user_id]);
   return { deleted: true, id };
 }
 
@@ -495,7 +521,8 @@ async function listStudents(scope, opts = {}) {
 
 /**
  * Institution: add a student under their own customer_id.
- * Organization (Rampex): add anywhere — customer_id or batch_id required.
+ * Organization: add under any customer (body.customer_id or via batch_id) —
+ *               the role POST /api/students already allows.
  * Trainer: add + enrol into batch (existing behaviour).
  */
 /** Duplicate guard (audit E7) — same email anywhere, or same name at one customer. */
@@ -568,8 +595,9 @@ async function createStudent(scope, body = {}) {
     const { login } = await provisionStudentLogin(db, id, { name: body.name, email: body.email, password: body.password });
     return { ...(await db.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
   }
-  if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer or institution can add students');
-  return db.transaction(async (tx) => {
+
+  if (scope.role !== 'trainer') throw forbidden('Only the assigned trainer, institution or Rampex can add students');
+  const student = await db.transaction(async (tx) => {
     let customerId = str(body.customer_id) || null;
     if (body.batch_id) {
       const batch = await tx.get(
@@ -597,6 +625,8 @@ async function createStudent(scope, body = {}) {
     const { login } = await provisionStudentLogin(tx, id, { name: body.name, email: body.email, password: body.password });
     return { ...(await tx.get('SELECT * FROM students WHERE id = ?', [id])), login: login || null };
   });
+  // Account + email AFTER the transaction commits — SMTP must not hold a DB lock.
+  return finish(student, student.customer_id);
 }
 
 // ---------- Enrollments ----------
@@ -806,7 +836,7 @@ async function updateStudent(scope, id, body = {}) {
 }
 
 async function deleteStudent(scope, id) {
-  const student = await db.get('SELECT * FROM students WHERE id = ?', [id]);
+  const student = await db.get('SELECT id, user_id, customer_id FROM students WHERE id = ?', [id]);
   if (!student) throw notFound('Student not found');
   if (scope.role === 'institution' && student.customer_id !== scope.customer_id) {
     throw forbidden('Not authorized to delete this student');
