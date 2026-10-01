@@ -67,6 +67,7 @@ export function Programs() {
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editF, setEditF] = useState({});
 
@@ -76,9 +77,12 @@ export function Programs() {
 
   const create = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
     setMsg('');
     try { await api.createProgram(f); setF({}); toast('✓ Program created'); load(); }
     catch (ex) { setMsg(ex.message); }
+    finally { setBusy(false); }
   };
 
   const openEdit = (p) => {
@@ -285,6 +289,7 @@ export function Batches() {
   const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [progs, setProgs] = useState([]);
   const [custs, setCusts] = useState([]);
   const [trs, setTrs] = useState([]);
@@ -338,18 +343,6 @@ export function Batches() {
       setMsg(ex.message);
     } finally {
       setBusy(false);
-    }
-  };
-
-  const remove = async (b) => {
-    if (!window.confirm(`Delete batch ${b.id}? This permanently removes its ${b.student_count} student enrollment(s), attendance, sessions, assessments and certificates.`)) return;
-    setMsg('');
-    try {
-      await api.deleteBatch(b.id);
-      toast(`✓ Batch ${b.id} deleted`);
-      api.batches().then(setRows);
-    } catch (ex) {
-      setMsg(ex.message);
     }
   };
 
@@ -1091,6 +1084,7 @@ export function TrainerLeaveRequests() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const [showApply, setShowApply] = useState(false);
   const [f, setF] = useState({
     type: 'Casual Leave',
