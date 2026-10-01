@@ -19,6 +19,7 @@ const QTYPES = [
 const SENT_LABEL = { POSITIVE: 'Positive', NEUTRAL: 'Neutral', NEGATIVE: 'Needs attention' };
 const SENT_CLASS = { POSITIVE: 'sent-pos', NEUTRAL: 'sent-neu', NEGATIVE: 'sent-neg' };
 const AUD_LABEL = { STUDENT: 'Students', INSTITUTION: 'Institutions' };
+const CREATOR_LABEL = { ORGANIZATION: 'Rampex', INSTITUTION: 'Institution', TRAINER: 'Trainer' };
 
 const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
 const day = (s) => String(s || '').slice(0, 10);
@@ -342,7 +343,7 @@ function FillIn({ form, onSubmit }) {
 }
 
 /* ---------- Detail view ---------- */
-function FormDetail({ id, onBack, onChanged }) {
+function FormDetail({ id, hideSentiment, onBack, onChanged }) {
   const [form, setForm] = useState(null);
   const [responses, setResponses] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -394,7 +395,13 @@ function FormDetail({ id, onBack, onChanged }) {
           <h2>{form.title}</h2>
           <p className="sub">
             <span className="chip">{AUD_LABEL[form.audience] || form.audience}</span>{' '}
-            <span className="chip">{form.created_by_role === 'ORGANIZATION' ? 'By Rampex' : 'By ' + (form.customer_name || 'institution')}</span>{' '}
+            <span className="chip">
+              {form.created_by_role === 'ORGANIZATION'
+                ? 'By Rampex'
+                : form.created_by_role === 'TRAINER'
+                  ? 'By your trainer'
+                  : 'By ' + (form.customer_name || 'institution')}
+            </span>{' '}
             <span className={'chip ' + (form.status === 'OPEN' ? 'ACTIVE' : 'CLOSED')}>{form.status}</span>{' '}
             {form.customer_name && form.created_by_role === 'ORGANIZATION' && <span className="chip">{form.customer_name}</span>}
           </p>
@@ -460,7 +467,9 @@ function FormDetail({ id, onBack, onChanged }) {
         <div className="card" style={{ marginBottom: 18, borderColor: 'var(--accent-line)' }}>
           <div className="hstack">
             <b>Your response</b>
-            <SentChip label={mine.sentiment} score={mine.sentiment_score} />
+            {/* The polarity score is for whoever reads the feedback, not for the
+                person who gave it — so a student never sees it. */}
+            {!hideSentiment && <SentChip label={mine.sentiment} score={mine.sentiment_score} />}
             <span className="meta" style={{ marginLeft: 'auto' }}>{day(mine.created_at)}</span>
           </div>
           <p className="meta" style={{ margin: '6px 0 0' }}>Thanks — you've already submitted this form.</p>
@@ -511,8 +520,8 @@ function MySubmissions() {
               <span className="meta">{day(r.created_at)}</span>
             </div>
             <div className="hstack" style={{ marginTop: 8 }}>
-              <SentChip label={r.sentiment} score={r.sentiment_score} />
               {r.audience && <span className="chip">{AUD_LABEL[r.audience] || r.audience}</span>}
+              <span className="meta">Submitted — thanks for the feedback.</span>
             </div>
           </div>
         ))}
@@ -546,7 +555,7 @@ export default function Feedback() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
-  if (sel) return <FormDetail id={sel} onBack={() => setSel(null)} onChanged={load} />;
+  if (sel) return <FormDetail id={sel} hideSentiment={isStudent} onBack={() => setSel(null)} onChanged={load} />;
 
   return (
     <div>
@@ -579,7 +588,9 @@ export default function Feedback() {
         <>
           {tab === 'forms' && (
             <>
-              <Analytics ov={ov} showInstitution={user?.role !== 'trainer'} />
+              {/* Sentiment analytics is a management view — a student filling in a
+                  form has no use for the platform's polarity roll-up. */}
+              {!isStudent && <Analytics ov={ov} showInstitution={user?.role !== 'trainer'} />}
 
               {!forms.length && <p className="empty">No feedback forms yet.</p>}
               {!!forms.length && (
@@ -587,7 +598,7 @@ export default function Feedback() {
                   <thead>
                     <tr>
                       <th>Form</th><th>Audience</th><th>Created by</th><th>Questions</th>
-                      <th>Responses</th><th>Sentiment</th><th>Status</th><th>Actions</th>
+                      <th>Responses</th>{!isStudent && <th>Sentiment</th>}<th>Status</th><th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -598,14 +609,16 @@ export default function Feedback() {
                           {f.customer_name && <p className="meta" style={{ margin: '2px 0 0' }}>{f.customer_name}</p>}
                         </td>
                         <td><span className="chip">{AUD_LABEL[f.audience] || f.audience}</span></td>
-                        <td>{f.created_by_role === 'ORGANIZATION' ? 'Rampex' : 'Institution'}</td>
+                        <td>{CREATOR_LABEL[f.created_by_role] || f.created_by_role}</td>
                         <td>{f.question_count}</td>
                         <td>{f.response_count}</td>
-                        <td>
-                          {f.response_count
-                            ? <SentChip label={f.sentiment_label} score={f.avg_sentiment} />
-                            : <span className="meta">—</span>}
-                        </td>
+                        {!isStudent && (
+                          <td>
+                            {f.response_count
+                              ? <SentChip label={f.sentiment_label} score={f.avg_sentiment} />
+                              : <span className="meta">—</span>}
+                          </td>
+                        )}
                         <td><span className={'chip ' + (f.status === 'OPEN' ? 'ACTIVE' : 'CLOSED')}>{f.status}</span></td>
                         <td>
                           <button className="btn sm ghost" onClick={() => setSel(f.id)}>
