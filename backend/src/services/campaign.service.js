@@ -187,6 +187,21 @@ const SETTING_DEFAULTS = {
   auto_enroll_campaign_id: '',
   auto_task_enabled: '1',
   stale_lead_days: '5',
+  // Throughput limits. An empty value means "follow the env default"
+  // (OUTREACH_DAILY_CAP / OUTREACH_MIN_GAP_MS / OUTREACH_TICK_MS /
+  //  OUTREACH_MAX_ATTEMPTS), so a fresh install behaves exactly as before.
+  daily_cap: '',
+  min_gap_ms: '',
+  tick_ms: '',
+  max_attempts: '',
+};
+
+/** Bounds an operator may set from the Automation tab — never above the hard ceiling. */
+const LIMIT_BOUNDS = {
+  daily_cap: [1, 1000],
+  min_gap_ms: [1000, 600000],
+  tick_ms: [5000, 3600000],
+  max_attempts: [1, 10],
 };
 /** Runtime state written by the scheduler — shown in the UI, never user-set. */
 const INTERNAL_KEYS = ['last_tick_at', 'last_tick_summary', 'last_lead_run_at'];
@@ -206,6 +221,29 @@ async function setSetting(key, value) {
   const existing = await db.get('SELECT `key` FROM automation_settings WHERE `key` = ?', [key]);
   if (existing) await db.run('UPDATE automation_settings SET `value` = ? WHERE `key` = ?', [String(value), key]);
   else await db.run('INSERT INTO automation_settings (`key`, `value`) VALUES (?,?)', [key, String(value)]);
+}
+
+/**
+ * Effective throughput limits: whatever the operator saved in the Automation
+ * tab, falling back to the env defaults when the field was left blank. This is
+ * the single source of truth for the scheduler, the daily_cap guard on
+ * campaigns, and every number shown in the UI — so what you edit is what runs.
+ */
+async function getLimits() {
+  const s = await getSettings();
+  const pick = (key, fallback) => {
+    const n = toInt(s[key], NaN);
+    // Blank / unset → the env default, untouched.
+    if (!Number.isFinite(n) || n <= 0) return fallback;
+    const [lo, hi] = LIMIT_BOUNDS[key];
+    return Math.min(Math.max(n, lo), hi);
+  };
+  return {
+    daily_cap: pick('daily_cap', config.mail.dailyCap),
+    min_gap_ms: pick('min_gap_ms', config.mail.minGapMs),
+    tick_ms: pick('tick_ms', config.mail.tickMs),
+    max_attempts: pick('max_attempts', config.mail.maxAttempts),
+  };
 }
 
 /** Runtime state for the scheduler (last tick, summary). */
@@ -231,6 +269,22 @@ async function updateSettings(body = {}) {
       if (!c) throw badRequest(`Unknown campaign: ${id}`);
     }
     await setSetting('auto_enroll_campaign_id', id);
+  }
+
+  // Throughput limits — edited from the Automation tab. An empty string or
+  // null resets the field to the env default.
+  for (const key of Object.keys(LIMIT_BOUNDS)) {
+    if (body[key] === undefined) continue;
+    const raw = body[key];
+    if (raw === '' || raw === null) {
+      await setSetting(key, '');
+      continue;
+    }
+    const n = toInt(raw, NaN);
+    const [lo, hi] = LIMIT_BOUNDS[key];
+    if (!Number.isFinite(n)) throw badRequest(`${key} must be a number`);
+    if (n < lo || n > hi) throw badRequest(`${key} must be between ${lo} and ${hi}`);
+    await setSetting(key, n);
   }
   return getSettings();
 }
@@ -367,7 +421,7 @@ async function getCampaign(id) {
   return c;
 }
 
-function campaignPayload(body = {}, existing = null) {
+function campaignPayload(body = {}, existing = null, maxDailyCap = null) {
   const out = {};
   if (body.name !== undefined || !existing) out.name = str(body.name);
   if (body.template_id !== undefined || !existing) out.template_id = str(body.template_id);
@@ -375,8 +429,9 @@ function campaignPayload(body = {}, existing = null) {
   if (body.from_name !== undefined) out.from_name = str(body.from_name) || null;
   if (body.daily_limit !== undefined) {
     const n = toInt(body.daily_limit, 40);
-    if (n < 1 || n > config.mail.dailyCap) {
-      throw badRequest(`daily_limit must be between 1 and ${config.mail.dailyCap}`);
+    const cap = maxDailyCap ?? config.mail.dailyCap;
+    if (n < 1 || n > cap) {
+      throw badRequest(`daily_limit must be between 1 and ${cap}`);
     }
     out.daily_limit = n;
   }
@@ -410,7 +465,7 @@ async function assertTemplates(templateId, followupId) {
 
 async function createCampaign(body = {}, actorUserId = null) {
   requireFields(body, ['name', 'template_id']);
-  const p = campaignPayload(body);
+  const p = campaignPayload(body, null, (await getLimits()).daily_cap);
   await assertTemplates(p.template_id, p.followup_template_id);
 
   const id = await nid(db, 'CMP', 'campaigns');
@@ -887,6 +942,7 @@ module.exports = {
   templateForStep,
   // settings
   getSettings,
+  getLimits,
   updateSettings,
   setInternal,
   // templates

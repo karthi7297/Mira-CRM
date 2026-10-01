@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, inr, toast, toastError } from '../api';
 import { printCertificate } from '../report';
 import { useAuth } from '../auth';
+import { check, ok, req, minLen, Ferr } from '../validate';
 
 const TABS = ['Overview', 'Performance', 'Marks', 'Material', 'Certificates', 'Interests', 'Fee'];
 
@@ -16,6 +17,7 @@ export default function MyLearning() {
   const [scores, setScores] = useState([]);
   const [share, setShare] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fe, setFe] = useState({});
   const { user } = useAuth();
 
   const load = () => {
@@ -29,6 +31,9 @@ export default function MyLearning() {
 
   const send = async (e) => {
     e.preventDefault();
+    const errs = check({ share: [req('Answer'), minLen(2, 'Answer')] }, { share });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     if (!share.trim()) { setMsg('Write something to share first'); return; }
     setBusy(true);
@@ -255,13 +260,17 @@ export default function MyLearning() {
             <h4>Share an interest</h4>
             <p className="meta">Only your trainers (and Rampex) can see this — never your college.</p>
             <form onSubmit={send} className="hstack">
-              <input
-                required
-                placeholder="e.g. I want GenAI projects…"
-                value={share}
-                onChange={(e) => setShare(e.target.value)}
-                style={{ flex: '1 1 220px' }}
-              />
+              <div style={{ flex: '1 1 220px' }}>
+                <input
+                  required
+                  placeholder="e.g. I want GenAI projects…"
+                  value={share}
+                  onChange={(e) => setShare(e.target.value)}
+                  aria-invalid={!!fe.share}
+                  style={{ width: '100%' }}
+                />
+                <Ferr fe={fe} name="share" />
+              </div>
               <button className="btn" type="submit" disabled={busy}>{busy ? 'Sharing…' : 'Share'}</button>
             </form>
           </div>

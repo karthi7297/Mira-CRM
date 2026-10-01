@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api, inr, downloadCSV, toast, toastError } from '../api';
 import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
+import { confirmDialog } from '../Confirm';
 import { exportAssessmentPDF, exportAssessmentExcel } from '../exportReport';
+import { check, ok, Ferr, req, email, phone, num, int } from '../validate';
 
 function parseCSV(csvText) {
   const lines = csvText.trim().split('\n');
@@ -72,6 +74,8 @@ export function Programs() {
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editF, setEditF] = useState({});
+  const [fe, setFe] = useState({});
+  const [editFe, setEditFe] = useState({});
 
   const canManage = user?.role === 'organization';
   const load = () => api.programs().then(setRows).catch((e) => setMsg(e.message));
@@ -79,6 +83,12 @@ export function Programs() {
 
   const create = async (e) => {
     e.preventDefault();
+    const errs = check({
+      name: [req('Program name')],
+      fee_per_student: [num('Fee per student', { min: 0 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     setBusy(true);
     setMsg('');
@@ -95,6 +105,12 @@ export function Programs() {
 
   const saveEdit = async (e) => {
     e.preventDefault();
+    const errs = check({
+      name: [req('Program name')],
+      fee_per_student: [num('Fee per student', { min: 0 })],
+    }, editF);
+    setEditFe(errs);
+    if (!ok(errs)) return;
     setMsg('');
     try {
       await api.updateProgram(editId, editF);
@@ -107,7 +123,7 @@ export function Programs() {
   };
 
   const remove = async (p) => {
-    if (!window.confirm(`Delete program "${p.name}" (${p.id})?`)) return;
+    if (!(await confirmDialog({ title: 'Delete program', message: `Delete program "${p.name}" (${p.id})?` }))) return;
     setMsg('');
     try {
       await api.deleteProgram(p.id);
@@ -128,9 +144,17 @@ export function Programs() {
 
       {canManage && (
         <form onSubmit={create} className="form narrow mb">
-          <input required placeholder="Program name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
-          <input placeholder="Duration" value={f.duration || ''} onChange={(e) => setF({ ...f, duration: e.target.value })} />
-          <input placeholder="Fee per student" type="number" value={f.fee_per_student || ''} onChange={(e) => setF({ ...f, fee_per_student: +e.target.value })} />
+          <div>
+            <input required placeholder="Program name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} aria-invalid={!!fe.name} />
+            <Ferr fe={fe} name="name" />
+          </div>
+          <div>
+            <input placeholder="Duration" value={f.duration || ''} onChange={(e) => setF({ ...f, duration: e.target.value })} />
+          </div>
+          <div>
+            <input placeholder="Fee per student" type="number" value={f.fee_per_student || ''} onChange={(e) => setF({ ...f, fee_per_student: +e.target.value })} aria-invalid={!!fe.fee_per_student} />
+            <Ferr fe={fe} name="fee_per_student" />
+          </div>
           <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : '+ Create Program'}</button></span>
         </form>
       )}
@@ -157,9 +181,17 @@ export function Programs() {
           <div>
             <h3>Edit Program · {editId}</h3>
             <form onSubmit={saveEdit} className="form">
-              <input required placeholder="Program name" value={editF.name || ''} onChange={(e) => setEditF({ ...editF, name: e.target.value })} />
-              <input placeholder="Duration" value={editF.duration || ''} onChange={(e) => setEditF({ ...editF, duration: e.target.value })} />
-              <input placeholder="Fee per student" type="number" value={editF.fee_per_student ?? ''} onChange={(e) => setEditF({ ...editF, fee_per_student: +e.target.value })} />
+              <div>
+                <input required placeholder="Program name" value={editF.name || ''} onChange={(e) => setEditF({ ...editF, name: e.target.value })} aria-invalid={!!editFe.name} />
+                <Ferr fe={editFe} name="name" />
+              </div>
+              <div>
+                <input placeholder="Duration" value={editF.duration || ''} onChange={(e) => setEditF({ ...editF, duration: e.target.value })} />
+              </div>
+              <div>
+                <input placeholder="Fee per student" type="number" value={editF.fee_per_student ?? ''} onChange={(e) => setEditF({ ...editF, fee_per_student: +e.target.value })} aria-invalid={!!editFe.fee_per_student} />
+                <Ferr fe={editFe} name="fee_per_student" />
+              </div>
               <span>
                 <button className="btn">Save Changes</button>
                 <button type="button" className="btn ghost" onClick={() => setEditId(null)}>Cancel</button>
@@ -179,6 +211,7 @@ export function Trainers() {
   const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
+  const [fe, setFe] = useState({});
 
   const canManage = user?.role === 'organization';
   const load = () => api.trainers().then(setRows).catch((e) => setMsg(e.message));
@@ -195,6 +228,13 @@ export function Trainers() {
 
   const submit = async (e) => {
     e.preventDefault();
+    const errs = check({
+      name: [req('Full name')],
+      email: [email()],
+      phone: [phone()],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     setMsg('');
     try {
       if (editing) {
@@ -216,7 +256,7 @@ export function Trainers() {
   };
 
   const remove = async (t) => {
-    if (!window.confirm(`Delete trainer "${t.name}" (${t.id})?`)) return;
+    if (!(await confirmDialog({ title: 'Delete trainer', message: `Delete trainer "${t.name}" (${t.id})?` }))) return;
     setMsg('');
     try {
       await api.deleteTrainer(t.id);
@@ -286,10 +326,21 @@ export function Trainers() {
           <div>
             <h3>{editing ? `Edit Trainer · ${editing}` : 'Add Trainer'}</h3>
             <form onSubmit={submit} className="form">
-              <input required placeholder="Full Name *" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
-              <input placeholder="Expertise (e.g., AI/ML, Full Stack)" value={f.expertise || ''} onChange={(e) => setF({ ...f, expertise: e.target.value })} />
-              <input type="email" placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} />
-              <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+              <div>
+                <input required placeholder="Full Name *" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} aria-invalid={!!fe.name} />
+                <Ferr fe={fe} name="name" />
+              </div>
+              <div>
+                <input placeholder="Expertise (e.g., AI/ML, Full Stack)" value={f.expertise || ''} onChange={(e) => setF({ ...f, expertise: e.target.value })} />
+              </div>
+              <div>
+                <input type="email" placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} aria-invalid={!!fe.email} />
+                <Ferr fe={fe} name="email" />
+              </div>
+              <div>
+                <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-invalid={!!fe.phone} />
+                <Ferr fe={fe} name="phone" />
+              </div>
               <span>
                 <button className="btn">{editing ? 'Save Changes' : 'Add Trainer'}</button>
                 <button type="button" className="btn ghost" onClick={() => { setShow(false); setEditing(null); }}>Cancel</button>
@@ -313,6 +364,7 @@ export function Batches() {
   const [progs, setProgs] = useState([]);
   const [custs, setCusts] = useState([]);
   const [trs, setTrs] = useState([]);
+  const [fe, setFe] = useState({});
 
   const canManage = user?.role === 'organization';
   // Editing: org edits any batch, an institution edits only its own (DELETE stays org-only).
@@ -344,6 +396,13 @@ export function Batches() {
 
   const submit = async (e) => {
     e.preventDefault();
+    const errs = check({
+      program_id: [req('Program')],
+      customer_id: [req('Customer')],
+      capacity: [int('Capacity', { min: 1 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     setBusy(true);
     setMsg('');
@@ -367,7 +426,7 @@ export function Batches() {
   };
 
   const remove = async (b) => {
-    if (!window.confirm(`Delete batch ${b.id}? This permanently removes its ${b.student_count} student enrollment(s), attendance, sessions, assessments and certificates.`)) return;
+    if (!(await confirmDialog({ title: 'Delete batch', message: `Delete batch ${b.id}? This permanently removes its ${b.student_count} student enrollment(s), attendance, sessions, assessments and certificates.` }))) return;
     setMsg('');
     try {
       await api.deleteBatch(b.id);
@@ -422,30 +481,49 @@ export function Batches() {
             <h3>{editing ? `Edit Batch · ${editing}` : 'Create Batch'}</h3>
             <form onSubmit={submit} className="form">
               {!editing && (
-                <input placeholder="Batch ID (optional)" value={f.id || ''} onChange={(e) => setF({ ...f, id: e.target.value })} />
+                <div>
+                  <input placeholder="Batch ID (optional)" value={f.id || ''} onChange={(e) => setF({ ...f, id: e.target.value })} />
+                </div>
               )}
-              <select value={f.program_id || ''} onChange={(e) => setF({ ...f, program_id: e.target.value })} required>
-                <option value="">Program…</option>
-                {progs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <select value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })} required>
-                <option value="">Customer…</option>
-                {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <select value={f.trainer_id || ''} onChange={(e) => setF({ ...f, trainer_id: e.target.value })}>
-                <option value="">Trainer…</option>
-                {trs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <input type="date" value={f.start_date || ''} onChange={(e) => setF({ ...f, start_date: e.target.value })} />
-              <input type="date" value={f.end_date || ''} onChange={(e) => setF({ ...f, end_date: e.target.value })} />
-              <input type="number" placeholder="Capacity" value={f.capacity || ''} onChange={(e) => setF({ ...f, capacity: +e.target.value })} />
-              {editing && (
-                <select value={f.status || ''} onChange={(e) => setF({ ...f, status: e.target.value })}>
-                  <option value="PLANNED">PLANNED</option>
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="COMPLETED">COMPLETED</option>
-                  <option value="CANCELLED">CANCELLED</option>
+              <div>
+                <select value={f.program_id || ''} onChange={(e) => setF({ ...f, program_id: e.target.value })} required aria-invalid={!!fe.program_id}>
+                  <option value="">Program…</option>
+                  {progs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+                <Ferr fe={fe} name="program_id" />
+              </div>
+              <div>
+                <select value={f.customer_id || ''} onChange={(e) => setF({ ...f, customer_id: e.target.value })} required aria-invalid={!!fe.customer_id}>
+                  <option value="">Customer…</option>
+                  {custs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Ferr fe={fe} name="customer_id" />
+              </div>
+              <div>
+                <select value={f.trainer_id || ''} onChange={(e) => setF({ ...f, trainer_id: e.target.value })}>
+                  <option value="">Trainer…</option>
+                  {trs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <input type="date" value={f.start_date || ''} onChange={(e) => setF({ ...f, start_date: e.target.value })} />
+              </div>
+              <div>
+                <input type="date" value={f.end_date || ''} onChange={(e) => setF({ ...f, end_date: e.target.value })} />
+              </div>
+              <div>
+                <input type="number" placeholder="Capacity" value={f.capacity || ''} onChange={(e) => setF({ ...f, capacity: +e.target.value })} aria-invalid={!!fe.capacity} />
+                <Ferr fe={fe} name="capacity" />
+              </div>
+              {editing && (
+                <div>
+                  <select value={f.status || ''} onChange={(e) => setF({ ...f, status: e.target.value })}>
+                    <option value="PLANNED">PLANNED</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
               )}
               <span>
                 <button className="btn">Save</button>
@@ -471,6 +549,8 @@ export function BatchDetail() {
   const [sel, setSel] = useState('');
   const [ints, setInts] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [fe, setFe] = useState({});
+  const [sfe, setSfe] = useState({});
 
   const load = () => {
     api.batch(id).then(setB);
@@ -481,6 +561,13 @@ export function BatchDetail() {
 
   const enroll = async (e) => {
     e.preventDefault();
+    const errs = check({
+      name: [req('Student name')],
+      email: [email()],
+      phone: [phone()],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     setBusy(true);
     try { await api.createStudent({ ...f, batch_id: id }); setF({}); toast('Student enrolled'); load(); }
@@ -489,6 +576,15 @@ export function BatchDetail() {
   };
   const addSess = async (e) => {
     e.preventDefault();
+    const errs = check({
+      date: [req('Date')],
+      start_time: [req('Start time')],
+      end_time: [req('End time')],
+      location: [req('Location')],
+      topic: [req('Topic')],
+    }, sf);
+    setSfe(errs);
+    if (!ok(errs)) return;
     if (busy) return;
     setBusy(true);
     try {
@@ -556,9 +652,18 @@ export function BatchDetail() {
         <>
           <h4>Enrol a student</h4>
           <form onSubmit={enroll} className="form narrow">
-            <input required placeholder="Student name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
-            <input placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} />
-            <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+            <div>
+              <input required placeholder="Student name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} aria-invalid={!!fe.name} />
+              <Ferr fe={fe} name="name" />
+            </div>
+            <div>
+              <input placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} aria-invalid={!!fe.email} />
+              <Ferr fe={fe} name="email" />
+            </div>
+            <div>
+              <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-invalid={!!fe.phone} />
+              <Ferr fe={fe} name="phone" />
+            </div>
             <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Enrolling…' : 'Enrol'}</button></span>
           </form>
         </>
@@ -615,11 +720,26 @@ export function BatchDetail() {
 
       {canSchedule && (
         <form onSubmit={addSess} className="form mt" style={{ maxWidth: 780 }}>
-          <input type="date" value={sf.date || ''} onChange={(e) => setSf({ ...sf, date: e.target.value })} />
-          <input placeholder="Start (10:00)" value={sf.start_time || ''} onChange={(e) => setSf({ ...sf, start_time: e.target.value })} />
-          <input placeholder="End (13:00)" value={sf.end_time || ''} onChange={(e) => setSf({ ...sf, end_time: e.target.value })} />
-          <input placeholder="Location" value={sf.location || ''} onChange={(e) => setSf({ ...sf, location: e.target.value })} />
-          <input placeholder="Topic" value={sf.topic || ''} onChange={(e) => setSf({ ...sf, topic: e.target.value })} />
+          <div>
+            <input type="date" value={sf.date || ''} onChange={(e) => setSf({ ...sf, date: e.target.value })} aria-invalid={!!sfe.date} />
+            <Ferr fe={sfe} name="date" />
+          </div>
+          <div>
+            <input placeholder="Start (10:00)" value={sf.start_time || ''} onChange={(e) => setSf({ ...sf, start_time: e.target.value })} aria-invalid={!!sfe.start_time} />
+            <Ferr fe={sfe} name="start_time" />
+          </div>
+          <div>
+            <input placeholder="End (13:00)" value={sf.end_time || ''} onChange={(e) => setSf({ ...sf, end_time: e.target.value })} aria-invalid={!!sfe.end_time} />
+            <Ferr fe={sfe} name="end_time" />
+          </div>
+          <div>
+            <input placeholder="Location" value={sf.location || ''} onChange={(e) => setSf({ ...sf, location: e.target.value })} aria-invalid={!!sfe.location} />
+            <Ferr fe={sfe} name="location" />
+          </div>
+          <div>
+            <input placeholder="Topic" value={sf.topic || ''} onChange={(e) => setSf({ ...sf, topic: e.target.value })} aria-invalid={!!sfe.topic} />
+            <Ferr fe={sfe} name="topic" />
+          </div>
           <span><button className="btn" type="submit" disabled={busy}>{busy ? 'Scheduling…' : 'Schedule Session'}</button></span>
         </form>
       )}
@@ -654,6 +774,8 @@ export function Students() {
   const [formBusy, setFormBusy] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [reportStudent, setReportStudent] = useState(null);
+  const [addFe, setAddFe] = useState({});
+  const [editFe, setEditFe] = useState({});
 
   const load = () => {
     const params = {};
@@ -668,6 +790,13 @@ export function Students() {
   const handleAdd = async (e) => {
     e.preventDefault();
     if (formBusy) return;
+    const errs = check({
+      name: [req('Student name')],
+      email: [email()],
+      phone: [phone()],
+    }, addForm);
+    setAddFe(errs);
+    if (!ok(errs)) return;
     if (!String(addForm.name || '').trim()) { setErr('Student name is required'); return; }
     const addEmail = String(addForm.email || '').trim();
     if (addEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(addEmail)) { setErr('Enter a valid email address'); return; }
@@ -710,6 +839,13 @@ export function Students() {
   const handleEdit = async (e) => {
     e.preventDefault();
     if (formBusy) return;
+    const errs = check({
+      name: [req('Student name')],
+      email: [email()],
+      phone: [phone()],
+    }, editStudent || {});
+    setEditFe(errs);
+    if (!ok(errs)) return;
     if (!String(editStudent.name || '').trim()) { setErr('Student name is required'); return; }
     const editEmail = String(editStudent.email || '').trim();
     if (editEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(editEmail)) { setErr('Enter a valid email address'); return; }
@@ -734,7 +870,7 @@ export function Students() {
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to remove student "${name}" (${id})?`)) return;
+    if (!(await confirmDialog({ title: 'Remove student', message: `Are you sure you want to remove student "${name}" (${id})?` }))) return;
     try {
       await api.deleteStudent(id);
       toast(`✓ Student ${name} removed`);
@@ -885,35 +1021,49 @@ export function Students() {
             </p>
             <form onSubmit={handleAdd} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Full Name *</label>
-              <input
-                required
-                placeholder="Student full name"
-                value={addForm.name || ''}
-                onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  placeholder="Student full name"
+                  value={addForm.name || ''}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  aria-invalid={!!addFe.name}
+                />
+                <Ferr fe={addFe} name="name" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Email Address</label>
-              <input
-                type="email"
-                placeholder="student@college.edu"
-                value={addForm.email || ''}
-                onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
-              />
+              <div>
+                <input
+                  type="email"
+                  placeholder="student@college.edu"
+                  value={addForm.email || ''}
+                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  aria-invalid={!!addFe.email}
+                />
+                <Ferr fe={addFe} name="email" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Phone Number</label>
-              <input
-                placeholder="98400-00000"
-                value={addForm.phone || ''}
-                onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-              />
+              <div>
+                <input
+                  placeholder="98400-00000"
+                  value={addForm.phone || ''}
+                  onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                  aria-invalid={!!addFe.phone}
+                />
+                <Ferr fe={addFe} name="phone" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Enrol into Batch</label>
-              <select
-                value={addForm.batch_id || ''}
-                onChange={(e) => setAddForm({ ...addForm, batch_id: e.target.value })}
-              >
-                <option value="">Select batch (optional)…</option>
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={addForm.batch_id || ''}
+                  onChange={(e) => setAddForm({ ...addForm, batch_id: e.target.value })}
+                >
+                  <option value="">Select batch (optional)…</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <button className="btn" type="submit" disabled={formBusy}>{formBusy ? 'Saving…' : 'Add Student'}</button>
                 <button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>Cancel</button>
@@ -930,22 +1080,34 @@ export function Students() {
             <h3>Edit Student {editStudent.id}</h3>
             <form onSubmit={handleEdit} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Full Name *</label>
-              <input
-                required
-                value={editStudent.name || ''}
-                onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  value={editStudent.name || ''}
+                  onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })}
+                  aria-invalid={!!editFe.name}
+                />
+                <Ferr fe={editFe} name="name" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Email Address</label>
-              <input
-                type="email"
-                value={editStudent.email || ''}
-                onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
-              />
+              <div>
+                <input
+                  type="email"
+                  value={editStudent.email || ''}
+                  onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
+                  aria-invalid={!!editFe.email}
+                />
+                <Ferr fe={editFe} name="email" />
+              </div>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Phone Number</label>
-              <input
-                value={editStudent.phone || ''}
-                onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })}
-              />
+              <div>
+                <input
+                  value={editStudent.phone || ''}
+                  onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })}
+                  aria-invalid={!!editFe.phone}
+                />
+                <Ferr fe={editFe} name="phone" />
+              </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <button className="btn" type="submit" disabled={formBusy}>{formBusy ? 'Saving…' : 'Save Changes'}</button>
                 <button type="button" className="btn ghost" onClick={() => setEditStudent(null)}>Cancel</button>
@@ -1144,6 +1306,7 @@ export function TrainerLeaveRequests() {
     from_date: new Date().toISOString().slice(0, 10),
     to_date: new Date().toISOString().slice(0, 10),
   });
+  const [fe, setFe] = useState({});
 
   const load = () => {
     setLoading(true);
@@ -1164,6 +1327,14 @@ export function TrainerLeaveRequests() {
   const submitLeave = async (e) => {
     e.preventDefault();
     if (busy) return;
+    const errs = check({
+      from_date: [req('From date')],
+      to_date: [req('To date')],
+      days: [req('Number of days'), num('Number of days', { min: 0.5 })],
+      reason: [req('Reason')],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     /* Validate date order before submitting */
     if (f.to_date && f.from_date && f.to_date < f.from_date) {
       setMsg('End date cannot be before the start date');
@@ -1325,12 +1496,14 @@ export function TrainerLeaveRequests() {
             </p>
             <form onSubmit={submitLeave} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Leave Type</label>
-              <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
-                <option>Casual Leave</option>
-                <option>Sick Leave</option>
-                <option>Earned Leave</option>
-                <option>Comp Off</option>
-              </select>
+              <div>
+                <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
+                  <option>Casual Leave</option>
+                  <option>Sick Leave</option>
+                  <option>Earned Leave</option>
+                  <option>Comp Off</option>
+                </select>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
@@ -1340,7 +1513,9 @@ export function TrainerLeaveRequests() {
                     required
                     value={f.from_date}
                     onChange={(e) => setF({ ...f, from_date: e.target.value })}
+                    aria-invalid={!!fe.from_date}
                   />
+                  <Ferr fe={fe} name="from_date" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>To Date</label>
@@ -1349,27 +1524,37 @@ export function TrainerLeaveRequests() {
                     required
                     value={f.to_date}
                     onChange={(e) => setF({ ...f, to_date: e.target.value })}
+                    aria-invalid={!!fe.to_date}
                   />
+                  <Ferr fe={fe} name="to_date" />
                 </div>
               </div>
 
               <label style={{ fontSize: 13, fontWeight: 600 }}>Number of Days</label>
-              <input
-                type="number"
-                min="0.5"
-                step="0.5"
-                required
-                value={f.days}
-                onChange={(e) => setF({ ...f, days: e.target.value })}
-              />
+              <div>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  required
+                  value={f.days}
+                  onChange={(e) => setF({ ...f, days: e.target.value })}
+                  aria-invalid={!!fe.days}
+                />
+                <Ferr fe={fe} name="days" />
+              </div>
 
               <label style={{ fontSize: 13, fontWeight: 600 }}>Reason</label>
-              <input
-                required
-                placeholder="Reason for leave"
-                value={f.reason}
-                onChange={(e) => setF({ ...f, reason: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  placeholder="Reason for leave"
+                  value={f.reason}
+                  onChange={(e) => setF({ ...f, reason: e.target.value })}
+                  aria-invalid={!!fe.reason}
+                />
+                <Ferr fe={fe} name="reason" />
+              </div>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Submit Request'}</button>
@@ -1391,6 +1576,7 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
+  const [fe, setFe] = useState({});
 
   useEffect(() => {
     api.batches().then(setBatches).catch(() => {});
@@ -1424,6 +1610,12 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errs = check({
+      batch_id: [req('Batch')],
+      file: [req('File')],
+    }, { batch_id: selectedBatch, file });
+    setFe(errs);
+    if (!ok(errs)) return;
     if (!file || !selectedBatch) {
       setMsg('Please select a file and a batch');
       return;
@@ -1492,26 +1684,34 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
 
         <form onSubmit={handleSubmit} className="form col-1">
           <label style={{ fontSize: 13, fontWeight: 600 }}>Select Batch *</label>
-          <select
-            value={selectedBatch}
-            onChange={(e) => setSelectedBatch(e.target.value)}
-            required
-            disabled={!batches.length}
-          >
-            <option value="">Choose batch…</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
-            ))}
-          </select>
+          <div>
+            <select
+              value={selectedBatch}
+              onChange={(e) => setSelectedBatch(e.target.value)}
+              required
+              disabled={!batches.length}
+              aria-invalid={!!fe.batch_id}
+            >
+              <option value="">Choose batch…</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+              ))}
+            </select>
+            <Ferr fe={fe} name="batch_id" />
+          </div>
 
           <label style={{ fontSize: 13, fontWeight: 600 }}>Upload File (CSV, XLSX, XLS) *</label>
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileChange}
-            disabled={loading}
-            required
-          />
+          <div>
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileChange}
+              disabled={loading}
+              required
+              aria-invalid={!!fe.file}
+            />
+            <Ferr fe={fe} name="file" />
+          </div>
           <p className="meta">Max 500 students per upload. File must have a header row.</p>
 
           {preview.length > 0 && (
@@ -1563,6 +1763,8 @@ export function Assessments() {
   const [batchFilter, setBatchFilter] = useState('ALL');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(''); // "<id>:<kind>" currently exporting
+  const [fe, setFe] = useState({});
+  const [editFe, setEditFe] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -1586,6 +1788,13 @@ export function Assessments() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    const errs = check({
+      batch_id: [req('Batch')],
+      title: [req('Title')],
+      max_score: [req('Max score'), int('Max score', { min: 1 })],
+    }, f);
+    setFe(errs);
+    if (!ok(errs)) return;
     setMsg('');
     try {
       await api.createAssessment(f);
@@ -1634,7 +1843,7 @@ export function Assessments() {
   };
 
   const deleteScore = async (assessmentId, studentId) => {
-    if (!window.confirm('Delete this score?')) return;
+    if (!(await confirmDialog({ title: 'Delete score', message: 'Delete this score?' }))) return;
     try {
       await api.deleteScore(assessmentId, studentId);
       toast('✓ Score deleted');
@@ -1651,6 +1860,12 @@ export function Assessments() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    const errs = check({
+      title: [req('Title')],
+      max_score: [req('Max score'), int('Max score', { min: 1 })],
+    }, editForm || {});
+    setEditFe(errs);
+    if (!ok(errs)) return;
     setMsg('');
     try {
       await api.updateAssessment(showEdit, editForm);
@@ -1663,7 +1878,7 @@ export function Assessments() {
   };
 
   const deleteAssessment = async (id) => {
-    if (!window.confirm('Delete this assessment and all its scores?')) return;
+    if (!(await confirmDialog({ title: 'Delete assessment', message: 'Delete this assessment and all its scores?' }))) return;
     try {
       await api.deleteAssessment(id);
       toast('✓ Assessment deleted');
@@ -1860,24 +2075,32 @@ export function Assessments() {
             <h3>Create Assessment</h3>
             <form onSubmit={handleCreate} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Batch *</label>
-              <select
-                value={f.batch_id}
-                onChange={(e) => setF({ ...f, batch_id: e.target.value })}
-                required
-              >
-                <option value="">Select batch…</option>
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={f.batch_id}
+                  onChange={(e) => setF({ ...f, batch_id: e.target.value })}
+                  required
+                  aria-invalid={!!fe.batch_id}
+                >
+                  <option value="">Select batch…</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+                  ))}
+                </select>
+                <Ferr fe={fe} name="batch_id" />
+              </div>
 
               <label style={{ fontSize: 13, fontWeight: 600 }}>Title *</label>
-              <input
-                required
-                placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
-                value={f.title}
-                onChange={(e) => setF({ ...f, title: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
+                  value={f.title}
+                  onChange={(e) => setF({ ...f, title: e.target.value })}
+                  aria-invalid={!!fe.title}
+                />
+                <Ferr fe={fe} name="title" />
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
@@ -1887,7 +2110,9 @@ export function Assessments() {
                     min="1"
                     value={f.max_score}
                     onChange={(e) => setF({ ...f, max_score: +e.target.value })}
+                    aria-invalid={!!fe.max_score}
                   />
+                  <Ferr fe={fe} name="max_score" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Assessment Date</label>
@@ -1914,12 +2139,16 @@ export function Assessments() {
             <h3>Edit Assessment</h3>
             <form onSubmit={handleEdit} className="form col-1">
               <label style={{ fontSize: 13, fontWeight: 600 }}>Title *</label>
-              <input
-                required
-                placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              />
+              <div>
+                <input
+                  required
+                  placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  aria-invalid={!!editFe.title}
+                />
+                <Ferr fe={editFe} name="title" />
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
@@ -1929,7 +2158,9 @@ export function Assessments() {
                     min="1"
                     value={editForm.max_score}
                     onChange={(e) => setEditForm({ ...editForm, max_score: +e.target.value })}
+                    aria-invalid={!!editFe.max_score}
                   />
+                  <Ferr fe={editFe} name="max_score" />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Assessment Date</label>
