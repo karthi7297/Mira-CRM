@@ -17,8 +17,8 @@ const ROLE_LABEL = {
    of truth for which modules a role may open. */
 const SECTIONS = [
   { label: 'Overview', routes: ['/', '/learning'] },
-  { label: 'CRM', routes: ['/leads', '/cold-mail', '/customers', '/college'] },
-  { label: 'Training', routes: ['/programs', '/trainers', '/batches', '/students', '/attendance', '/my-leave'] },
+  { label: 'CRM', routes: ['/leads', '/customers', '/college'] },
+  { label: 'Training', routes: ['/programs', '/trainers', '/batches', '/students', '/assessments', '/attendance', '/my-leave'] },
   { label: 'Finance', routes: ['/quotations', '/invoices', '/payments', '/expenses', '/my-finance', '/collections'] },
   { label: 'Insights', routes: ['/reports', '/certificates'] },
 ];
@@ -183,6 +183,13 @@ const ICONS = {
       <path d="M12.6 8H6.3" />
     </>
   ),
+  assessment: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+      <path d="M5.5 9h5M7 6.5v5M9.5 6.5v5" />
+      <path d="M6 5.5h4M6 10h4" stroke="currentColor" strokeWidth="1.2" />
+    </>
+  ),
   mark: (
     <>
       <circle cx="5.6" cy="5.4" r="2" />
@@ -205,6 +212,7 @@ const ICON_FOR = {
   '/trainers': 'trainers',
   '/batches': 'batches',
   '/students': 'students',
+  '/assessments': 'assessment',
   '/attendance': 'attendance',
   '/my-leave': 'calendar',
   '/my-finance': 'wallet',

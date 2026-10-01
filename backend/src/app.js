@@ -127,16 +127,30 @@ function createApp() {
     ok(res, await trainingService.listPrograms())));
   app.post('/api/programs', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createProgram(req.body || {}))));
+  app.patch('/api/programs/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.updateProgram(req.params.id, req.body || {}))));
+  app.delete('/api/programs/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.deleteProgram(req.params.id))));
   app.get('/api/trainers', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listTrainers())));
   app.post('/api/trainers', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createTrainer(req.body || {}))));
+  app.patch('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.updateTrainer(req.params.id, req.body || {}))));
+  app.delete('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.deleteTrainer(req.params.id))));
   app.get('/api/batches', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listBatches(req.scope))));
   app.get('/api/batches/:id', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.getBatch(req.scope, req.params.id))));
   app.post('/api/batches', requireOrg, validate({ body: { program_id: 'string', customer_id: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createBatch(req.body || {}))));
+  // Org edits any batch; an institution may edit (but not re-home) its own.
+  // DELETE stays org-only — dropping a batch cascades enrollments/sessions.
+  app.patch('/api/batches/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.updateBatch(req.scope, req.params.id, req.body || {}))));
+  app.delete('/api/batches/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.deleteBatch(req.params.id))));
   // STUDENT MANAGEMENT IS THE TRAINER'S JOB (master-prd §3). A trainer owns a
   // short personal roster, so name-by-name CRUD is the right granularity there.
   // Rampex + institutions have hundreds of students and get aggregates only
@@ -185,10 +199,16 @@ function createApp() {
     ok(res, await learningService.listAssessments(req.scope, { batch_id: req.query.batch_id || '' }))));
   app.post('/api/assessments', requireAuth, validate({ body: { batch_id: 'string', title: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await learningService.createAssessment(req.scope, req.body || {}))));
+  app.patch('/api/assessments/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.updateAssessment(req.scope, req.params.id, req.body || {}))));
+  app.delete('/api/assessments/:id', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.deleteAssessment(req.scope, req.params.id))));
   app.get('/api/scores', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.listScores(req.scope, { batch_id: req.query.batch_id || '', student_id: req.query.student_id || '' }))));
   app.post('/api/scores', requireAuth, validate({ body: { assessment_id: 'string', student_id: 'string' } }), asyncHandler(async (req, res) =>
     ok(res, await learningService.saveScore(req.scope, req.body || {}))));
+  app.delete('/api/scores/:assessmentId/:studentId', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.deleteScore(req.scope, req.params.assessmentId, req.params.studentId))));
   app.get('/api/students/:id/report', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.studentReport(req.scope, req.params.id))));
   app.get('/api/reports/top-students', requireAuth, asyncHandler(async (req, res) =>

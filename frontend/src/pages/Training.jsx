@@ -67,18 +67,49 @@ export function Programs() {
   const [rows, setRows] = useState([]);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editF, setEditF] = useState({});
 
-  const load = () => api.programs().then(setRows);
+  const canManage = user?.role === 'organization';
+  const load = () => api.programs().then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
 
   const create = async (e) => {
     e.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    try { await api.createProgram(f); toast('Program created successfully'); setF({}); load(); }
+    setMsg('');
+    try { await api.createProgram(f); setF({}); toast('✓ Program created'); load(); }
     catch (ex) { setMsg(ex.message); }
-    finally { setBusy(false); }
+  };
+
+  const openEdit = (p) => {
+    setMsg('');
+    setEditId(p.id);
+    setEditF({ name: p.name, duration: p.duration || '', fee_per_student: p.fee_per_student });
+  };
+
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      await api.updateProgram(editId, editF);
+      setEditId(null);
+      toast('✓ Program updated');
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const remove = async (p) => {
+    if (!window.confirm(`Delete program "${p.name}" (${p.id})?`)) return;
+    setMsg('');
+    try {
+      await api.deleteProgram(p.id);
+      toast('✓ Program deleted');
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
   };
 
   return (
@@ -87,9 +118,9 @@ export function Programs() {
         <h2>Training Programs</h2>
       </div>
 
-      {msg && <div className="err">{msg}</div>}
+      {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
-      {user?.role === 'organization' && (
+      {canManage && (
         <form onSubmit={create} className="form narrow mb">
           <input required placeholder="Program name" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
           <input placeholder="Duration" value={f.duration || ''} onChange={(e) => setF({ ...f, duration: e.target.value })} />
@@ -105,9 +136,32 @@ export function Programs() {
             <h4>{p.id}</h4>
             <b className="sm">{p.name}</b>
             <p className="meta">{p.duration} · {inr(p.fee_per_student)}/student · {p.batch_count} batches</p>
+            {canManage && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn sm ghost" onClick={() => openEdit(p)}>Edit</button>
+                <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(p)}>Delete</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {editId && (
+        <div className="modal">
+          <div>
+            <h3>Edit Program · {editId}</h3>
+            <form onSubmit={saveEdit} className="form">
+              <input required placeholder="Program name" value={editF.name || ''} onChange={(e) => setEditF({ ...editF, name: e.target.value })} />
+              <input placeholder="Duration" value={editF.duration || ''} onChange={(e) => setEditF({ ...editF, duration: e.target.value })} />
+              <input placeholder="Fee per student" type="number" value={editF.fee_per_student ?? ''} onChange={(e) => setEditF({ ...editF, fee_per_student: +e.target.value })} />
+              <span>
+                <button className="btn">Save Changes</button>
+                <button type="button" className="btn ghost" onClick={() => setEditId(null)}>Cancel</button>
+              </span>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -116,19 +170,49 @@ export function Trainers() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
 
+  const canManage = user?.role === 'organization';
   const load = () => api.trainers().then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
 
-  const create = async (e) => {
+  const openCreate = () => { setMsg(''); setEditing(null); setF({}); setShow(true); };
+
+  const openEdit = (t) => {
+    setMsg('');
+    setEditing(t.id);
+    setF({ name: t.name, expertise: t.expertise || '', email: t.email || '', phone: t.phone || '' });
+    setShow(true);
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
     setMsg('');
     try {
-      await api.createTrainer(f);
+      if (editing) {
+        await api.updateTrainer(editing, f);
+        toast('✓ Trainer updated');
+      } else {
+        await api.createTrainer(f);
+        toast('✓ Trainer added');
+      }
       setShow(false);
+      setEditing(null);
       setF({});
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const remove = async (t) => {
+    if (!window.confirm(`Delete trainer "${t.name}" (${t.id})?`)) return;
+    setMsg('');
+    try {
+      await api.deleteTrainer(t.id);
+      toast('✓ Trainer deleted');
       load();
     } catch (ex) {
       setMsg(ex.message);
@@ -142,8 +226,8 @@ export function Trainers() {
           <h2>Trainers</h2>
           <p className="sub">Manage Rampex trainers — expertise, contact info, and batch assignments.</p>
         </div>
-        {user?.role === 'organization' && (
-          <button type="button" className="btn" onClick={() => setShow(true)}>+ Add Trainer</button>
+        {canManage && (
+          <button className="btn" onClick={openCreate}>+ Add Trainer</button>
         )}
       </div>
 
@@ -151,7 +235,7 @@ export function Trainers() {
 
       <table>
         <thead>
-          <tr><th>ID</th><th>Name</th><th>Expertise</th><th>Email</th><th>Phone</th></tr>
+          <tr><th>ID</th><th>Name</th><th>Expertise</th><th>Email</th><th>Phone</th>{canManage && <th>Actions</th>}</tr>
         </thead>
         <tbody>
           {rows.map((t) => (
@@ -161,6 +245,12 @@ export function Trainers() {
               <td>{t.expertise || '—'}</td>
               <td>{t.email || '—'}</td>
               <td>{t.phone || '—'}</td>
+              {canManage && (
+                <td>
+                  <button className="btn sm ghost" onClick={() => openEdit(t)}>Edit</button>
+                  <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(t)}>Delete</button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -170,15 +260,15 @@ export function Trainers() {
       {show && (
         <div className="modal">
           <div>
-            <h3>Add Trainer</h3>
-            <form onSubmit={create} className="form">
+            <h3>{editing ? `Edit Trainer · ${editing}` : 'Add Trainer'}</h3>
+            <form onSubmit={submit} className="form">
               <input required placeholder="Full Name *" value={f.name || ''} onChange={(e) => setF({ ...f, name: e.target.value })} />
               <input placeholder="Expertise (e.g., AI/ML, Full Stack)" value={f.expertise || ''} onChange={(e) => setF({ ...f, expertise: e.target.value })} />
               <input type="email" placeholder="Email" value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} />
               <input placeholder="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
               <span>
-                <button className="btn" type="submit" disabled={busy}>{busy ? 'Adding…' : 'Add Trainer'}</button>
-                <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
+                <button className="btn">{editing ? 'Save Changes' : 'Add Trainer'}</button>
+                <button type="button" className="btn ghost" onClick={() => { setShow(false); setEditing(null); }}>Cancel</button>
               </span>
             </form>
           </div>
@@ -192,29 +282,56 @@ export function Batches() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [f, setF] = useState({});
   const [msg, setMsg] = useState('');
   const [progs, setProgs] = useState([]);
   const [custs, setCusts] = useState([]);
   const [trs, setTrs] = useState([]);
-  const [busy, setBusy] = useState(false);
+
+  const canManage = user?.role === 'organization';
+  // Editing: org edits any batch, an institution edits only its own (DELETE stays org-only).
+  const canEdit = canManage || user?.role === 'institution';
 
   useEffect(() => {
-    api.batches().then(setRows);
+    api.batches().then(setRows).catch((e) => setMsg(e.message));
     api.programs().then(setProgs);
     api.customers().then(setCusts);
     api.trainers().then(setTrs);
   }, []);
 
-  const create = async (e) => {
+  const openCreate = () => { setMsg(''); setEditing(null); setF({}); setShow(true); };
+
+  const openEdit = (b) => {
+    setMsg('');
+    setEditing(b.id);
+    setF({
+      program_id: b.program_id,
+      customer_id: b.customer_id,
+      trainer_id: b.trainer_id || '',
+      start_date: b.start_date || '',
+      end_date: b.end_date || '',
+      capacity: b.capacity,
+      status: b.status,
+    });
+    setShow(true);
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
     setMsg('');
     try {
-      await api.createBatch({ ...f, id: f.id || `B-${Date.now().toString().slice(-6)}` });
-      toast('Batch created successfully');
+      if (editing) {
+        await api.updateBatch(editing, f);
+        toast(`✓ Batch ${editing} updated`);
+      } else {
+        await api.createBatch({ ...f, id: f.id || `B-${Date.now().toString().slice(-6)}` });
+        toast('✓ Batch created');
+      }
       setShow(false);
+      setEditing(null);
       setF({});
       api.batches().then(setRows);
     } catch (ex) {
@@ -224,20 +341,44 @@ export function Batches() {
     }
   };
 
+  const remove = async (b) => {
+    if (!window.confirm(`Delete batch ${b.id}? This permanently removes its ${b.student_count} student enrollment(s), attendance, sessions, assessments and certificates.`)) return;
+    setMsg('');
+    try {
+      await api.deleteBatch(b.id);
+      toast(`✓ Batch ${b.id} deleted`);
+      api.batches().then(setRows);
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const remove = async (b) => {
+    if (!window.confirm(`Delete batch ${b.id}? This permanently removes its ${b.student_count} student enrollment(s), attendance, sessions, assessments and certificates.`)) return;
+    setMsg('');
+    try {
+      await api.deleteBatch(b.id);
+      toast(`✓ Batch ${b.id} deleted`);
+      api.batches().then(setRows);
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
   return (
     <div>
       <div className="page-head">
         <h2>Batches</h2>
-        {user?.role === 'organization' && (
-          <button type="button" className="btn" onClick={() => setShow(true)}>+ Create Batch</button>
+        {canManage && (
+          <button className="btn" onClick={openCreate}>+ Create Batch</button>
         )}
       </div>
 
-      {msg && <div className="err">{msg}</div>}
+      {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
 
       <table>
         <thead>
-          <tr><th>Batch</th><th>Program</th><th>Customer</th><th>Trainer</th><th>Students</th><th>Status</th></tr>
+          <tr><th>Batch</th><th>Program</th><th>Customer</th><th>Trainer</th><th>Students</th><th>Status</th>{canEdit && <th>Actions</th>}</tr>
         </thead>
         <tbody>
           {rows.map((b) => (
@@ -245,9 +386,17 @@ export function Batches() {
               <td><Link to={'/batches/' + b.id}>{b.id}</Link></td>
               <td>{b.program_name}</td>
               <td>{b.customer_name}</td>
-              <td>{b.trainer_name}</td>
+              <td>{b.trainer_name || '—'}</td>
               <td>{b.student_count}</td>
               <td><span className={'chip ' + b.status}>{b.status}</span></td>
+              {canEdit && (
+                <td>
+                  <button className="btn sm ghost" onClick={() => openEdit(b)}>Edit</button>
+                  {canManage && (
+                    <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => remove(b)}>Delete</button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -257,9 +406,11 @@ export function Batches() {
       {show && (
         <div className="modal">
           <div>
-            <h3>Create Batch</h3>
-            <form onSubmit={create} className="form">
-              <input placeholder="Batch ID (optional)" value={f.id || ''} onChange={(e) => setF({ ...f, id: e.target.value })} />
+            <h3>{editing ? `Edit Batch · ${editing}` : 'Create Batch'}</h3>
+            <form onSubmit={submit} className="form">
+              {!editing && (
+                <input placeholder="Batch ID (optional)" value={f.id || ''} onChange={(e) => setF({ ...f, id: e.target.value })} />
+              )}
               <select value={f.program_id || ''} onChange={(e) => setF({ ...f, program_id: e.target.value })} required>
                 <option value="">Program…</option>
                 {progs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -275,9 +426,17 @@ export function Batches() {
               <input type="date" value={f.start_date || ''} onChange={(e) => setF({ ...f, start_date: e.target.value })} />
               <input type="date" value={f.end_date || ''} onChange={(e) => setF({ ...f, end_date: e.target.value })} />
               <input type="number" placeholder="Capacity" value={f.capacity || ''} onChange={(e) => setF({ ...f, capacity: +e.target.value })} />
+              {editing && (
+                <select value={f.status || ''} onChange={(e) => setF({ ...f, status: e.target.value })}>
+                  <option value="PLANNED">PLANNED</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+              )}
               <span>
-                <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
-                <button type="button" className="btn ghost" onClick={() => setShow(false)}>Cancel</button>
+                <button className="btn">Save</button>
+                <button type="button" className="btn ghost" onClick={() => { setShow(false); setEditing(null); }}>Cancel</button>
               </span>
             </form>
           </div>
@@ -598,7 +757,7 @@ export function Students() {
       {err && <div className="err">{err}</div>}
 
       <div className="cards">
-        <div className="card">
+        <div className="card" style={{ borderLeft: '4px solid var(--info, #2c4f8c)' }}>
           <h4>Total Students</h4>
           <b>{rows.length}</b>
           <small>Active institutional learners</small>
@@ -1034,7 +1193,7 @@ export function TrainerLeaveRequests() {
           <b style={{ color: '#dc2626' }}>{rejectedCount}</b>
           <small>Leave declined</small>
         </div>
-        <div className="card">
+        <div className="card" style={{ borderLeft: '4px solid var(--info, #2c4f8c)' }}>
           <h4>Total Applications</h4>
           <b>{rows.length}</b>
           <small>Current academic year</small>
@@ -1340,6 +1499,371 @@ export function StudentBulkAdd({ onClose, onSuccess }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function Assessments() {
+  const { user } = useAuth();
+  const [assessments, setAssessments] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showScores, setShowScores] = useState(null);
+  const [showEdit, setShowEdit] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [f, setF] = useState({ batch_id: '', title: '', max_score: 100, assessed_on: new Date().toISOString().slice(0, 10) });
+  const [scoreEntries, setScoreEntries] = useState({});
+  const [msg, setMsg] = useState('');
+  const [batchFilter, setBatchFilter] = useState('ALL');
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [b, a] = await Promise.all([
+        api.batches(),
+        api.assessments()
+      ]);
+      setBatches(b);
+      setAssessments(a);
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filteredAssessments = assessments.filter(a => batchFilter === 'ALL' || a.batch_id === batchFilter);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      await api.createAssessment(f);
+      setShowCreate(false);
+      setF({ batch_id: '', title: '', max_score: 100, assessed_on: new Date().toISOString().slice(0, 10) });
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const loadScores = async (assessmentId) => {
+    try {
+      const s = await api.scores(`?assessment_id=${assessmentId}`);
+      setScores(s);
+      setShowScores(assessmentId);
+    } catch (e) {
+      setMsg(e.message);
+    }
+  };
+
+  const handleScoreChange = (assessmentId, studentId, value) => {
+    setScoreEntries(prev => ({
+      ...prev,
+      [assessmentId]: { ...prev[assessmentId], [studentId]: value }
+    }));
+  };
+
+  const saveScore = async (assessmentId, studentId) => {
+    const score = scoreEntries[assessmentId]?.[studentId];
+    if (score === undefined || score === '') return;
+    try {
+      await api.saveScore({ assessment_id: assessmentId, student_id: studentId, score: Number(score) });
+      toast('✓ Score saved');
+      if (showScores === assessmentId) loadScores(assessmentId);
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const deleteScore = async (assessmentId, studentId) => {
+    if (!window.confirm('Delete this score?')) return;
+    try {
+      await api.deleteScore(assessmentId, studentId);
+      toast('✓ Score deleted');
+      loadScores(assessmentId);
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const handleEditClick = (a) => {
+    setShowEdit(a.id);
+    setEditForm({ title: a.title, max_score: a.max_score, assessed_on: a.assessed_on });
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    setMsg('');
+    try {
+      await api.updateAssessment(showEdit, editForm);
+      setShowEdit(null);
+      setEditForm({});
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const deleteAssessment = async (id) => {
+    if (!window.confirm('Delete this assessment and all its scores?')) return;
+    try {
+      await api.deleteAssessment(id);
+      toast('✓ Assessment deleted');
+      load();
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+  };
+
+  const canManage = user?.role === 'organization' || user?.role === 'institution' || user?.role === 'trainer';
+
+  return (
+    <div>
+      <div className="page-head">
+        <div>
+          <h2>Assessments & Marks</h2>
+          <p className="sub">Create assessments, enter marks, and track student performance across batches.</p>
+        </div>
+        {canManage && (
+          <button className="btn" onClick={() => setShowCreate(true)}>+ Create Assessment</button>
+        )}
+      </div>
+
+      {msg && <div className={msg.startsWith('✓') ? 'okmsg' : 'err'}>{msg}</div>}
+
+      {loading ? (
+        <div className="loading">Loading assessments…</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            <select
+              className="select-sm"
+              value={batchFilter}
+              onChange={(e) => setBatchFilter(e.target.value)}
+              style={{ minWidth: 200 }}
+            >
+              <option value="ALL">All Batches</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+              ))}
+            </select>
+            {filteredAssessments.length === 0 && <p className="meta" style={{ marginTop: 8 }}>No assessments found. Create one to get started.</p>}
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Batch</th>
+                <th>Date</th>
+                <th>Max Score</th>
+                <th>Scores Entered</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAssessments.map((a) => (
+                <tr key={a.id}>
+                  <td className="mono">{a.id}</td>
+                  <td><b>{a.title}</b></td>
+                  <td>{a.batch_id}</td>
+                  <td>{a.assessed_on}</td>
+                  <td>{a.max_score}</td>
+                  <td>{a.score_count || 0}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {canManage && (
+                        <>
+                          <button className="btn sm ghost" onClick={() => loadScores(a.id)}>
+                            {showScores === a.id ? 'Hide Scores' : 'View/Enter Scores'}
+                          </button>
+                          <button className="btn sm ghost" onClick={() => handleEditClick(a)}>Edit</button>
+                          <button className="btn sm ghost" style={{ color: '#ef4444' }} onClick={() => deleteAssessment(a.id)}>Delete</button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {showScores && scores.length > 0 && (
+        <div className="modal" style={{ maxWidth: 900 }}>
+          <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>Scores for Assessment</h3>
+              <button className="btn ghost" onClick={() => setShowScores(null)}>Close</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Student ID</th>
+                  <th>Student Name</th>
+                  <th>Batch</th>
+                  <th>Score / Max</th>
+                  <th>%</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scores.map((s) => {
+                  const currentScore = scoreEntries[showScores]?.[s.student_id] ?? s.score;
+                  const pct = currentScore !== null && currentScore !== undefined && s.max_score
+                    ? Math.round((Number(currentScore) / Number(s.max_score)) * 100)
+                    : '—';
+                  return (
+                    <tr key={`${s.student_id}-${s.assessment_id}`}>
+                      <td className="mono">{s.student_id}</td>
+                      <td><b>{s.student_name}</b></td>
+                      <td>{s.batch_id}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          max={s.max_score}
+                          step="0.5"
+                          value={currentScore ?? ''}
+                          onChange={(e) => handleScoreChange(showScores, s.student_id, e.target.value)}
+                          style={{ width: 80 }}
+                        />
+                        <span className="meta"> / {s.max_score}</span>
+                      </td>
+                      <td><b>{pct !== '—' ? pct + '%' : '—'}</b></td>
+                      <td>
+                        {canManage && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              className="btn sm"
+                              onClick={() => saveScore(showScores, s.student_id)}
+                              disabled={currentScore === undefined || currentScore === ''}
+                            >
+                              Save
+                            </button>
+                            {s.score !== null && s.score !== undefined && (
+                              <button
+                                className="btn sm ghost"
+                                style={{ color: '#ef4444' }}
+                                onClick={() => deleteScore(showScores, s.student_id)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="modal">
+          <div>
+            <h3>Create Assessment</h3>
+            <form onSubmit={handleCreate} className="form col-1">
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Batch *</label>
+              <select
+                value={f.batch_id}
+                onChange={(e) => setF({ ...f, batch_id: e.target.value })}
+                required
+              >
+                <option value="">Select batch…</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.id} — {b.program_name}</option>
+                ))}
+              </select>
+
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Title *</label>
+              <input
+                required
+                placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
+                value={f.title}
+                onChange={(e) => setF({ ...f, title: e.target.value })}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Max Score</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={f.max_score}
+                    onChange={(e) => setF({ ...f, max_score: +e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Assessment Date</label>
+                  <input
+                    type="date"
+                    value={f.assessed_on}
+                    onChange={(e) => setF({ ...f, assessed_on: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <button className="btn">Create Assessment</button>
+                <button type="button" className="btn ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEdit && (
+        <div className="modal">
+          <div>
+            <h3>Edit Assessment</h3>
+            <form onSubmit={handleEdit} className="form col-1">
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Title *</label>
+              <input
+                required
+                placeholder="e.g. Mid-term Exam, Project Submission, Quiz 1"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Max Score</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.max_score}
+                    onChange={(e) => setEditForm({ ...editForm, max_score: +e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Assessment Date</label>
+                  <input
+                    type="date"
+                    value={editForm.assessed_on}
+                    onChange={(e) => setEditForm({ ...editForm, assessed_on: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <button className="btn">Save Changes</button>
+                <button type="button" className="btn ghost" onClick={() => setShowEdit(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

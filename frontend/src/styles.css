@@ -388,8 +388,8 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
   transition: opacity 0.26s ease, visibility 0.26s ease;
 }
 
-.body { flex: 1; min-width: 0; padding: 26px 26px 72px; }
-.body > * { max-width: var(--content-max); margin-inline: auto; }
+.body { flex: 1; min-width: 0; padding: 26px 26px 72px; overflow-x: hidden; }
+.body > * { max-width: var(--content-max); margin-inline: auto; width: 100%; box-sizing: border-box; }
 
 /* Enter transition on the page's own blocks. It is deliberately NOT applied to
    the page root or to .modal: an animated transform creates a containing block,
@@ -417,9 +417,12 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
 }
 
 /* ---------- 6. Cards ---------------------------------------------------- */
+/* auto-fit (not a fixed 4) so rows of 3 or 5 KPI cards spread evenly instead
+   of leaving an orphan card or a dead quarter. Below 1240px the responsive
+   section takes over with explicit 3 / 2 / 1 column tracks. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   margin: 0 0 16px;
 }
@@ -1261,6 +1264,14 @@ kbd {
 .trend .bar.b { background: #1d4ed8; } .trend .bar.c { background: #16a34a; }
 .trend small { font-size: 10px; color: #64748b; }
 .feed div { font-size: 13px; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
+.feed-empty { font-size: 13px; color: var(--muted); padding: 12px 0; text-align: center; }
+.feed { display: flex; flex-direction: column; gap: 0; }
+.feed-item { display: flex; align-items: center; gap: 10; padding: 10px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; transition: background 0.12s ease; }
+.feed-item:last-child { border-bottom: 0; }
+.feed-item:hover { background: var(--surface-2); }
+.feed-icon { flex: 0 0 24px; font-size: 14px; text-align: center; }
+.feed-label { flex: 1; min-width: 0; color: var(--ink-2); }
+.feed-time { flex: 0 0 auto; font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
 .cert-paper { border: 3px double #1d4ed8; border-radius: 14px; padding: 36px; text-align: center; background: #fff; max-width: 640px; margin: 0 auto; }
 .cert-paper h1 { letter-spacing: 6px; color: #1d4ed8; margin: 0 0 4px; }
 .cert-paper .who { font-size: 26px; font-weight: 800; margin: 12px 0 2px; }
@@ -1268,61 +1279,87 @@ kbd {
 /* Kanban Pipeline Board */
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(230px, 1fr));
-  gap: 12px;
-  align-items: start;
-  margin-top: 14px;
+  grid-template-columns: repeat(5, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 16px;
   overflow-x: auto;
-  padding-bottom: 16px;
+  padding-bottom: 20px;
 }
 .kanban-col {
-  background: #f8fafc;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 10px;
-  min-height: 480px;
+  padding: 0;
+  min-height: 520px;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--sh-1);
+  overflow: hidden;
 }
 .kanban-col-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 9px 12px;
+  border-top: 3px solid var(--sc, var(--accent));
   border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 12px;
+  min-height: 44px;
 }
 .kanban-count {
   font-size: 11px;
-  background: #fff;
-  border: 1px solid var(--line);
-  padding: 1px 6px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
   font-weight: 700;
-  color: var(--ink-2);
+  background: var(--sc, var(--accent));
+  color: #fff;
 }
 .kanban-val {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sc, var(--accent));
+  white-space: nowrap;
 }
 .kanban-cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
+  padding: 12px;
+  overflow-y: auto;
 }
 .kanban-card {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  padding: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .kanban-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.15);
+  border-color: var(--accent-line);
+}
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+.kanban-card:active {
+  cursor: grabbing;
+}
+.kanban-col .kanban-cards:empty::before {
+  content: "Drop leads here";
+  display: block;
+  text-align: center;
+  padding: 40px 0;
+  color: var(--faint);
+  font-size: 12px;
+  border: 2px dashed var(--line);
+  border-radius: var(--r-sm);
+  margin: 0;
 }
 .btn.sm {
   padding: 4px 8px;

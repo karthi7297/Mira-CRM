@@ -20,7 +20,7 @@ export function Collections() {
       <table style={{ marginTop: 12 }}><thead><tr><th>Priority</th><th>Invoice</th><th>Customer</th><th>Outstanding</th><th>Due</th><th>Why</th><th></th></tr></thead>
         <tbody>{rows.map(r => <tr key={r.id}>
           <td><span className={'chip ' + (r.risk === 'HIGH' ? 'UNPAID' : r.risk === 'MEDIUM' ? 'PARTIALLY_PAID' : 'PAID')}>{r.risk}</span></td>
-          <td>{r.id}</td><td>{r.customer_name}</td><td><b>{inr(r.outstanding)}</b></td><td>{r.due_date || '—'}{r.overdueDays > 0 && ` (${r.overdueDays}d late)`}</td>
+          <td>{r.id}</td><td>{r.customer_name}</td><td><b>{inr(r.outstanding)}</b></td><td style={{ whiteSpace: 'nowrap' }}>{r.due_date || '—'}{r.overdueDays > 0 && ` (${r.overdueDays}d late)`}</td>
           <td style={{ fontSize: 12 }}>{r.reasons.join(' · ')}</td>
           <td><Link to={'/invoices/' + r.id}>Collect →</Link></td></tr>)}</tbody></table>
       {rows.length === 0 && <p>Nothing outstanding. 🎉</p>}

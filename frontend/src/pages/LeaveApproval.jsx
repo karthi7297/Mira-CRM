@@ -46,9 +46,16 @@ export default function LeaveApproval() {
     } catch (ex) {
       toastError(ex.message);
       setMsg(ex.message);
-    } finally {
-      setBusy(false);
     }
+  };
+
+  const handleActionChange = (id, action) => {
+    if (!action) return;
+    handleAction(id, action);
+    // Reset the select after action
+    setTimeout(() => {
+      // The row will be re-rendered after load()
+    }, 100);
   };
 
   const submitLeave = async (e) => {
@@ -127,7 +134,7 @@ export default function LeaveApproval() {
           <b style={{ color: '#dc2626' }}>{rejectedCount}</b>
           <small>Declined applications</small>
         </div>
-        <div className="card">
+        <div className="card" style={{ borderLeft: '4px solid var(--info, #2c4f8c)' }}>
           <h4>Total Applications</h4>
           <b>{rows.length}</b>
           <small>Academic year 2026</small>
@@ -186,16 +193,15 @@ export default function LeaveApproval() {
                     {lr.type}
                   </span>
                 </td>
-                <td>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>
-                    {lr.from_date} {lr.from_date !== lr.to_date ? `→ ${lr.to_date}` : ''}
-                  </span>
+                <td style={{ whiteSpace: 'nowrap', fontSize: 13, fontWeight: 500 }}>
+                  {lr.from_date}
+                  {lr.from_date !== lr.to_date ? ` → ${lr.to_date}` : ''}
                 </td>
                 <td><b>{lr.days} d</b></td>
-                <td style={{ maxWidth: 220, fontSize: 13, color: '#334155' }}>
+                <td style={{ maxWidth: 220, fontSize: 13, lineHeight: 1.45, overflowWrap: 'break-word', color: '#334155' }}>
                   {lr.reason || '—'}
                 </td>
-                <td style={{ fontSize: 13, color: '#64748b' }}>{lr.applied_on}</td>
+                <td style={{ whiteSpace: 'nowrap', fontSize: 13, color: '#64748b' }}>{lr.applied_on}</td>
                 <td>
                   <span className={'chip ' + (lr.status === 'APPROVED' ? 'PRESENT' : lr.status === 'PENDING' ? 'LATE' : 'ABSENT')}>
                     {lr.status}
@@ -203,22 +209,16 @@ export default function LeaveApproval() {
                 </td>
                 <td>
                   {lr.status === 'PENDING' ? (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button type="button"
-                        className="btn sm"
-                        style={{ background: '#10b981', borderColor: '#10b981' }}
-                        onClick={() => handleAction(lr.id, 'approve')}
-                      >
-                        ✓ Approve
-                      </button>
-                      <button type="button"
-                        className="btn sm ghost"
-                        style={{ color: '#ef4444', borderColor: '#fca5a5' }}
-                        onClick={() => handleAction(lr.id, 'reject')}
-                      >
-                        ✕ Reject
-                      </button>
-                    </div>
+                    <select
+                      className="select-sm"
+                      style={{ minWidth: 130 }}
+                      value=""
+                      onChange={(e) => handleActionChange(lr.id, e.target.value)}
+                    >
+                      <option value="">Select Action…</option>
+                      <option value="approve">✓ Approve</option>
+                      <option value="reject">✕ Reject</option>
+                    </select>
                   ) : (
                     <span style={{ fontSize: 12, color: '#94a3b8' }}>Processed</span>
                   )}

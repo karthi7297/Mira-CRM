@@ -253,6 +253,17 @@ async function organizationDashboard() {
     };
   }));
 
+  // Expense breakdown by category
+  const expenseBreakdown = await db.query(
+    `SELECT category, COALESCE(SUM(amount),0) AS total
+       FROM expenses
+      GROUP BY category`
+  );
+  const expenseByCategory = {};
+  expenseBreakdown.forEach(row => {
+    expenseByCategory[row.category] = round2(Number(row.total || 0));
+  });
+
   return {
     role: 'organization',
     totalLeads,
@@ -261,6 +272,15 @@ async function organizationDashboard() {
     net: round2(collected - expenses),
     byStatus, recentPayments, outstandingInvoices, batches,
     institutions: instEnriched,
+    // Expense breakdown fields
+    trainerExpense: expenseByCategory.Trainer || 0,
+    venueExpense: expenseByCategory.Venue || 0,
+    travelExpense: expenseByCategory.Travel || 0,
+    accommodationExpense: expenseByCategory.Accommodation || 0,
+    materialsExpense: expenseByCategory.Materials || 0,
+    marketingExpense: expenseByCategory.Marketing || 0,
+    operationsExpense: expenseByCategory.Operations || 0,
+    otherExpense: expenseByCategory.Other || 0,
   };
 }
 

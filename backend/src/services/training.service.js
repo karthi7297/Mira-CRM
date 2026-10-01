@@ -33,6 +33,39 @@ async function createProgram(body = {}) {
   return db.get('SELECT * FROM programs WHERE id = ?', [id]);
 }
 
+async function updateProgram(id, body = {}) {
+  const program = await db.get('SELECT * FROM programs WHERE id = ?', [id]);
+  if (!program) throw notFound('Program not found');
+  const name = body.name !== undefined ? str(body.name) : program.name;
+  if (!isNonEmpty(name)) throw badRequest('Program name is required');
+  await db.run(
+    `UPDATE programs SET name = ?, duration = ?, description = ?, fee_per_student = ? WHERE id = ?`,
+    [name,
+      body.duration !== undefined ? str(body.duration) || null : program.duration,
+      body.description !== undefined ? str(body.description) || null : program.description,
+      body.fee_per_student !== undefined ? Number(body.fee_per_student) || 0 : program.fee_per_student,
+      id]
+  );
+  return db.get('SELECT * FROM programs WHERE id = ?', [id]);
+}
+
+/**
+ * Programs are referenced by batches (FK, no cascade) and program-level study
+ * material, so a program in use is refused with a pointer instead of being
+ * force-deleted out from under its batches.
+ */
+async function deleteProgram(id) {
+  const program = await db.get('SELECT id FROM programs WHERE id = ?', [id]);
+  if (!program) throw notFound('Program not found');
+  const batches = await db.count('SELECT COUNT(*) FROM batches WHERE program_id = ?', [id]);
+  if (batches > 0) {
+    throw conflict(`Program is used by ${batches} batch${batches === 1 ? '' : 'es'} — delete or reassign those batches first`);
+  }
+  await db.run('DELETE FROM materials WHERE program_id = ?', [id]);
+  await db.run('DELETE FROM programs WHERE id = ?', [id]);
+  return { deleted: true, id };
+}
+
 // ---------- Trainers (Rampex staff) ----------
 async function listTrainers() {
   return db.query('SELECT id, name, expertise, email, phone FROM trainers ORDER BY id');
@@ -46,6 +79,41 @@ async function createTrainer(body = {}) {
     [id, str(body.name), str(body.expertise) || null, str(body.email) || null, str(body.phone) || null]
   );
   return db.get('SELECT * FROM trainers WHERE id = ?', [id]);
+}
+
+async function updateTrainer(id, body = {}) {
+  const trainer = await db.get('SELECT * FROM trainers WHERE id = ?', [id]);
+  if (!trainer) throw notFound('Trainer not found');
+  const name = body.name !== undefined ? str(body.name) : trainer.name;
+  if (!isNonEmpty(name)) throw badRequest('Trainer name is required');
+  await db.run(
+    'UPDATE trainers SET name = ?, expertise = ?, email = ?, phone = ? WHERE id = ?',
+    [name,
+      body.expertise !== undefined ? str(body.expertise) || null : trainer.expertise,
+      body.email !== undefined ? str(body.email) || null : trainer.email,
+      body.phone !== undefined ? str(body.phone) || null : trainer.phone,
+      id]
+  );
+  return db.get('SELECT id, name, expertise, email, phone FROM trainers WHERE id = ?', [id]);
+}
+
+/**
+ * Trainer is referenced by batches and expenses (both FK, no cascade). Refuse
+ * while work is booked against them rather than orphaning that history.
+ */
+async function deleteTrainer(id) {
+  const trainer = await db.get('SELECT id FROM trainers WHERE id = ?', [id]);
+  if (!trainer) throw notFound('Trainer not found');
+  const batches = await db.count('SELECT COUNT(*) FROM batches WHERE trainer_id = ?', [id]);
+  if (batches > 0) {
+    throw conflict(`Trainer is assigned to ${batches} batch${batches === 1 ? '' : 'es'} — reassign them first`);
+  }
+  const expenses = await db.count('SELECT COUNT(*) FROM expenses WHERE trainer_id = ?', [id]);
+  if (expenses > 0) {
+    throw conflict(`Trainer has ${expenses} expense entr${expenses === 1 ? 'y' : 'ies'} booked against them — cannot delete`);
+  }
+  await db.run('DELETE FROM trainers WHERE id = ?', [id]);
+  return { deleted: true, id };
 }
 
 // ---------- Batches ----------
@@ -96,6 +164,63 @@ async function createBatch(body = {}) {
       str(body.start_date) || null, str(body.end_date) || null, toInt(body.capacity, 50)]
   );
   return batchWithMeta(db, await db.get('SELECT * FROM batches WHERE id = ?', [id]));
+}
+
+const BATCH_STATUSES = ['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+
+async function updateBatch(scope, id, body = {}) {
+  const batch = await db.get('SELECT * FROM batches WHERE id = ?', [id]);
+  if (!batch) throw notFound('Batch not found');
+  // Rampex edits anything; an institution edits only a batch of its own customer
+  // and may not re-home it to another customer (tenant stays fixed).
+  if (scope.role !== 'organization') {
+    if (scope.role !== 'institution' || batch.customer_id !== scope.customer_id) {
+      throw forbidden('Only Rampex or the owning institution can update this batch');
+    }
+    if (body.customer_id !== undefined && body.customer_id && body.customer_id !== batch.customer_id) {
+      throw forbidden('An institution cannot move a batch to another customer');
+    }
+  }
+  if (body.program_id !== undefined && body.program_id &&
+      !(await db.get('SELECT 1 AS ok FROM programs WHERE id = ?', [str(body.program_id)]))) {
+    throw badRequest('Unknown program_id');
+  }
+  if (body.customer_id !== undefined && body.customer_id &&
+      !(await db.get('SELECT 1 AS ok FROM customers WHERE id = ?', [str(body.customer_id)]))) {
+    throw badRequest('Unknown customer_id');
+  }
+  if (body.trainer_id && !(await db.get('SELECT 1 AS ok FROM trainers WHERE id = ?', [str(body.trainer_id)]))) {
+    throw badRequest('Unknown trainer_id');
+  }
+  const status = body.status !== undefined ? String(body.status).toUpperCase() : batch.status;
+  if (!BATCH_STATUSES.includes(status)) {
+    throw badRequest(`status must be one of ${BATCH_STATUSES.join(', ')}`);
+  }
+  await db.run(
+    `UPDATE batches SET program_id = ?, customer_id = ?, trainer_id = ?, start_date = ?, end_date = ?,
+            capacity = ?, status = ? WHERE id = ?`,
+    [body.program_id !== undefined && body.program_id ? str(body.program_id) : batch.program_id,
+      body.customer_id !== undefined && body.customer_id ? str(body.customer_id) : batch.customer_id,
+      body.trainer_id !== undefined ? str(body.trainer_id) || null : batch.trainer_id,
+      body.start_date !== undefined ? str(body.start_date) || null : batch.start_date,
+      body.end_date !== undefined ? str(body.end_date) || null : batch.end_date,
+      body.capacity !== undefined ? toInt(body.capacity, batch.capacity) : batch.capacity,
+      status, id]
+  );
+  return batchWithMeta(db, await db.get('SELECT * FROM batches WHERE id = ?', [id]));
+}
+
+/**
+ * Deleting a batch cascades enrollments, attendance, sessions, assessments,
+ * scores and certificates (all ON DELETE CASCADE); study material points at the
+ * batch without a cascade, so it is detached explicitly before the delete.
+ */
+async function deleteBatch(id) {
+  const batch = await db.get('SELECT id FROM batches WHERE id = ?', [id]);
+  if (!batch) throw notFound('Batch not found');
+  await db.run('UPDATE materials SET batch_id = NULL WHERE batch_id = ?', [id]);
+  await db.run('DELETE FROM batches WHERE id = ?', [id]);
+  return { deleted: true, id };
 }
 
 // ---------- Students ----------
@@ -528,7 +653,9 @@ async function bulkCreateStudents(scope, body = {}) {
 }
 
 module.exports = {
-  listPrograms, createProgram, listTrainers, createTrainer, listBatches, getBatch, createBatch,
+  listPrograms, createProgram, updateProgram, deleteProgram,
+  listTrainers, createTrainer, updateTrainer, deleteTrainer,
+  listBatches, getBatch, createBatch, updateBatch, deleteBatch,
   listStudents, createStudent, updateStudent, deleteStudent, createEnrollment, listAttendance, saveAttendance, ATTENDANCE_STATUSES,
   attendanceSummary, listLeaveRequests, updateLeaveRequest, createLeaveRequest, bulkCreateStudents,
 };
