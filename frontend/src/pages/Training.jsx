@@ -652,6 +652,10 @@ export function Students() {
     e.preventDefault();
     if (formBusy) return;
     if (!String(addForm.name || '').trim()) { setErr('Student name is required'); return; }
+    const addEmail = String(addForm.email || '').trim();
+    if (addEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(addEmail)) { setErr('Enter a valid email address'); return; }
+    const addPhone = String(addForm.phone || '').trim();
+    if (addPhone && !/^[+()\-.\s\d]{7,20}$/.test(addPhone)) { setErr('Enter a valid phone number'); return; }
     setFormBusy(true);
     setErr('');
     try {
@@ -675,6 +679,11 @@ export function Students() {
   const handleEdit = async (e) => {
     e.preventDefault();
     if (formBusy) return;
+    if (!String(editStudent.name || '').trim()) { setErr('Student name is required'); return; }
+    const editEmail = String(editStudent.email || '').trim();
+    if (editEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(editEmail)) { setErr('Enter a valid email address'); return; }
+    const editPhone = String(editStudent.phone || '').trim();
+    if (editPhone && !/^[+()\-.\s\d]{7,20}$/.test(editPhone)) { setErr('Enter a valid phone number'); return; }
     setFormBusy(true);
     setErr('');
     try {
@@ -1574,8 +1583,15 @@ export function Assessments() {
   const saveScore = async (assessmentId, studentId) => {
     const score = scoreEntries[assessmentId]?.[studentId];
     if (score === undefined || score === '') return;
+    const n = Number(score);
+    const max = Number(filteredAssessments.find((a) => a.id === assessmentId)?.max_score) || 100;
+    if (!Number.isFinite(n) || n < 0 || n > max) {
+      setMsg(`Score must be between 0 and ${max}`);
+      return;
+    }
+    setMsg('');
     try {
-      await api.saveScore({ assessment_id: assessmentId, student_id: studentId, score: Number(score) });
+      await api.saveScore({ assessment_id: assessmentId, student_id: studentId, score: n });
       toast('✓ Score saved');
       if (showScores === assessmentId) loadScores(assessmentId);
     } catch (ex) {

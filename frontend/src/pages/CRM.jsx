@@ -82,6 +82,12 @@ export function Leads() {
   const create = async (e) => {
     e.preventDefault();
     if (busy) return;
+    if (!String(f.organization || '').trim()) { setMsg('Organization is required'); return; }
+    if (!String(f.contact_person || '').trim()) { setMsg('Contact person is required'); return; }
+    const lEmail = String(f.email || '').trim();
+    if (lEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(lEmail)) { setMsg('Enter a valid email address'); return; }
+    const lPhone = String(f.phone || '').trim();
+    if (lPhone && !/^[+()\-.\s\d]{7,20}$/.test(lPhone)) { setMsg('Enter a valid phone number'); return; }
     setBusy(true);
     setMsg('');
     try {
