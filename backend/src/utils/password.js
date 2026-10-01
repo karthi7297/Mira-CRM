@@ -42,4 +42,18 @@ function verifyPassword(plain, stored) {
     || safeEqual(digest(LEGACY_PEPPER, salt, plain), hash);
 }
 
-module.exports = { hashPassword, verifyPassword };
+/**
+ * Cryptographically random temporary password for new accounts (credentials
+ * email flow). Ambiguous characters (0/O, 1/l/I) are excluded so the value is
+ * safe to read aloud/typing from an inbox; only the hash is ever stored.
+ */
+const TEMP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+
+function generateTempPassword(length = 10) {
+  const bytes = crypto.randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i += 1) out += TEMP_ALPHABET[bytes[i] % TEMP_ALPHABET.length];
+  return out;
+}
+
+module.exports = { hashPassword, verifyPassword, generateTempPassword };

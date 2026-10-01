@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   role          VARCHAR(20)  NOT NULL CHECK (role IN ('ORGANIZATION','INSTITUTION','TRAINER','STUDENT')),
   customer_id   VARCHAR(50),
   status        VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','BLOCKED')),
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME,
   CONSTRAINT fk_users_customer FOREIGN KEY (customer_id) REFERENCES customers (id)

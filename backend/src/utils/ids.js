@@ -14,7 +14,9 @@ function pad(n, width = 3) {
  * from COUNT(*). A count-based scheme collides as soon as a row is deleted or
  * ids are non-contiguous (e.g. delete CMP-001, and COUNT+1 hands out CMP-001
  * again while it is still taken). Scanning only the prefix family keeps the
- * query bounded and stays portable across SQLite and MySQL.
+ * query bounded and stays portable across SQLite and MySQL. Caller-supplied
+ * codes (e.g. batch 'AIML-2026-01') fall outside the anchored pattern and are
+ * ignored.
  */
 async function nid(db, prefix, table) {
   const rows = await db.query(`SELECT id FROM ${table} WHERE id LIKE ?`, [`${prefix}-%`]);
