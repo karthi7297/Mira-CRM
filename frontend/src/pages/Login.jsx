@@ -39,6 +39,7 @@ export default function Login() {
   const [email, setEmail] = useState('org@rampex.demo');
   const [password, setPassword] = useState('org123');
   const [err, setErr] = useState('');
+  const [fieldErr, setFieldErr] = useState({});
   const [busy, setBusy] = useState(false);
   const { login } = useAuth();
   const nav = useNavigate();
@@ -46,6 +47,15 @@ export default function Login() {
   const go = async (e) => {
     e.preventDefault();
     setErr('');
+    /* Client-side validation — mirrors the server's rules so users get instant
+       feedback without a round trip. */
+    const fe = {};
+    if (!email.trim()) fe.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) fe.email = 'Enter a valid email address';
+    if (!password) fe.password = 'Password is required';
+    setFieldErr(fe);
+    if (Object.keys(fe).length) return;
+
     setBusy(true);
     try {
       const user = await api.login(email, password);
@@ -100,22 +110,30 @@ export default function Login() {
           {err && <div className="err">{err}</div>}
 
           <form onSubmit={go} className="form col-1">
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              type="email"
-              autoComplete="username"
-              required
-            />
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
+            <div>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                type="email"
+                autoComplete="username"
+                aria-invalid={!!fieldErr.email}
+                required
+              />
+              {fieldErr.email && <p className="field-err" role="alert">{fieldErr.email}</p>}
+            </div>
+            <div>
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                type="password"
+                autoComplete="current-password"
+                aria-invalid={!!fieldErr.password}
+                required
+              />
+              {fieldErr.password && <p className="field-err" role="alert">{fieldErr.password}</p>}
+            </div>
             <button className="btn" type="submit" disabled={busy}>
               {busy ? 'Signing in…' : 'Sign in'}
             </button>

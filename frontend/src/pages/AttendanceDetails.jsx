@@ -81,7 +81,7 @@ export default function AttendanceDetails() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {records.length > 0 && (
-            <button
+            <button type="button"
               className="btn ghost no-print"
               onClick={() =>
                 downloadCSV(
@@ -133,13 +133,13 @@ export default function AttendanceDetails() {
       {/* Tabs and Filters */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '22px 0 14px', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
+          <button type="button"
             className={`btn sm ${viewTab === 'summary' ? '' : 'ghost'}`}
             onClick={() => setViewTab('summary')}
           >
             Student Attendance Summary ({filteredStudents.length})
           </button>
-          <button
+          <button type="button"
             className={`btn sm ${viewTab === 'log' ? '' : 'ghost'}`}
             onClick={() => setViewTab('log')}
           >
@@ -180,7 +180,7 @@ export default function AttendanceDetails() {
                 onChange={(e) => setDateFilter(e.target.value)}
               />
               {dateFilter && (
-                <button className="btn sm ghost" onClick={() => setDateFilter('')}>Clear Date</button>
+                <button type="button" className="btn sm ghost" onClick={() => setDateFilter('')}>Clear Date</button>
               )}
             </>
           )}

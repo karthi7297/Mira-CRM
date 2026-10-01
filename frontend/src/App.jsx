@@ -9,8 +9,10 @@ import { Programs, Batches, BatchDetail, Students, Attendance, TrainerLeaveReque
 import { Quotations, Invoices, InvoiceDetail, Payments, Expenses, Reports, TrainerFinance } from './pages/Finance';
 import { Enquire, Verify } from './pages/Public';
 import { Collections, Certificates } from './pages/Showcase';
+import ColdMail from './pages/ColdMail';
 import LeaveApproval from './pages/LeaveApproval';
 import AttendanceDetails from './pages/AttendanceDetails';
+import NotFound from './pages/NotFound';
 
 function College() {
   const { user } = useAuth();
@@ -38,6 +40,7 @@ export default function App() {
           <Route path="/learning" element={<Guard path="/learning"><MyLearning /></Guard>} />
           <Route path="/leads" element={<Guard path="/leads"><Leads /></Guard>} />
           <Route path="/leads/:id" element={<Guard path="/leads"><LeadDetail /></Guard>} />
+          <Route path="/cold-mail" element={<Guard path="/cold-mail"><ColdMail /></Guard>} />
           <Route path="/customers" element={<Guard path="/customers"><Customers /></Guard>} />
           <Route path="/customers/:id" element={<Guard path="/customers"><Customer360 /></Guard>} />
           <Route path="/college" element={<Guard path="/college"><College /></Guard>} />
@@ -60,6 +63,8 @@ export default function App() {
           <Route path="/certificates" element={<Guard path="/certificates"><Certificates /></Guard>} />
           <Route path="/expenses" element={<Guard path="/expenses"><Expenses /></Guard>} />
           <Route path="/reports" element={<Guard path="/reports"><Reports /></Guard>} />
+          {/* Custom 404: inside the shell when signed in, standalone otherwise */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

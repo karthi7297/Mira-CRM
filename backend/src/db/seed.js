@@ -45,6 +45,35 @@ async function insertDocument(db, table, { id, customer_id, program, items, disc
   }
 }
 
+/**
+ * Additive migrations for columns that landed after a database was first
+ * created. `CREATE TABLE IF NOT EXISTS` cannot add a column to a table that
+ * already exists, so anything introduced post-hoc needs an explicit ALTER.
+ *
+ * Attempting the ALTER and swallowing the "duplicate column" error is more
+ * reliable than inspecting the table first: introspection differs between
+ * SQLite and MySQL, while the failure mode is identical and unambiguous.
+ * Idempotent — safe to run on every boot.
+ */
+async function ensureColumns(db) {
+  const wanted = [
+    ['campaigns', 'followup_template_id'],
+  ];
+  for (const [table, column] of wanted) {
+    try {
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+      console.log(`[db] migrated: ${table}.${column} added`);
+    } catch (err) {
+      const msg = String(err.message || '');
+      // Already present (the normal case on every boot after the first), or the
+      // table does not exist yet — the DDL above builds it complete.
+      if (!/duplicate column|already exists|no such table/i.test(msg)) {
+        console.warn(`[db] migration ${table}.${column} skipped: ${msg}`);
+      }
+    }
+  }
+}
+
 /** Apply the dialect's DDL (idempotent). */
 async function applySchema(db) {
   if (db.driver === 'mysql') {
@@ -58,6 +87,7 @@ async function applySchema(db) {
   } else {
     applySqliteSchema(db);
   }
+  await ensureColumns(db);
 }
 
 async function seedDemoData(db) {
@@ -225,6 +255,64 @@ async function clearDb(db) {
   for (const t of tables) await db.exec(`DELETE FROM ${t}`);
 }
 
+/**
+ * Starter cold-mail templates — idempotent, so it fills an empty table on a
+ * fresh install and does nothing once the organization has written its own.
+ * Written to be usable as-is: real copy, real follow-up cadence.
+ */
+async function seedOutreachTemplates(db) {
+  const existing = await db.count('SELECT COUNT(*) FROM email_templates');
+  if (existing > 0) return;
+
+  const rows = [
+    [
+      'TPL-001', 'Institution — cold outreach', 'COLD_OUTREACH',
+      '{{organization}} — industry-led {{program}} for your students',
+      `Hi {{name}},
+
+I'm {{sender}} from Rampex. We deliver hands-on {{program}} programmes directly on campus — taught by working practitioners, with placement support at the end.
+
+Three things that tend to matter to placement cells:
+- Lab-based delivery, not lecture-only
+- Progress visible to faculty week by week
+- Certificates that verify publicly
+
+Would it help if I sent a one-page syllabus and a cost sheet for {{organization}}?
+
+{{unsubscribe}}`,
+    ],
+    [
+      'TPL-002', 'Follow-up — working around the calendar', 'FOLLOW_UP',
+      'Re: {{program}} for {{organization}}',
+      `Hi {{name}},
+
+Following up on my note last week about {{program}}.
+
+If timing is the issue, I'm happy to work around your academic calendar — we can start after the current semester exams.
+
+Worth a 15-minute call?
+
+{{unsubscribe}}`,
+    ],
+    [
+      'TPL-003', 'Follow-up — closing the loop', 'FOLLOW_UP',
+      'Should I close the file on this?',
+      `Hi {{name}},
+
+I don't want to keep filling your inbox, so this is my last note.
+
+If {{program}} is not a fit for {{organization}} this year, just say the word and I'll close the file. If it is, reply with a date and I'll bring the syllabus.
+
+{{unsubscribe}}`,
+    ],
+  ];
+
+  for (const row of rows) {
+    await db.run('INSERT INTO email_templates (id,name,category,subject,body) VALUES (?,?,?,?,?)', row);
+  }
+  console.log('[db] seeded 3 starter cold-mail templates');
+}
+
 /** Boot: apply schema, seed demo rows when empty. */
 async function initialize(db) {
   await applySchema(db);
@@ -239,6 +327,7 @@ async function initialize(db) {
     }
     console.log(`[db] seeded demo data (db-prd §7) on ${db.driver}`);
   }
+  await seedOutreachTemplates(db);
 }
 
-module.exports = { initialize, seedDemoData, clearDb, insertDocument };
+module.exports = { initialize, seedDemoData, seedOutreachTemplates, clearDb, insertDocument };

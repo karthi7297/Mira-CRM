@@ -35,4 +35,55 @@ module.exports = {
     mediumOutstanding: 50000,
     mediumOverdueDays: 7,
   },
+
+  /**
+   * Mira AI assistant (OpenRouter). Free models only — the primary is tried
+   * first and the fallback catches rate-limits/errors, so a 429 on one model
+   * does not take the widget down. The key stays server-side; the browser only
+   * ever talks to /api/assistant/chat.
+   */
+  assistant: {
+    apiKey: process.env.OPENROUTER_API_KEY || '',
+    baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+    model: process.env.OPENROUTER_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free',
+    fallbackModel: process.env.OPENROUTER_MODEL_FALLBACK || 'inclusionai/ling-3.0-flash-sante:free',
+    // Both models are reasoning models: hidden reasoning tokens count toward
+    // max_tokens, so this needs headroom or replies get cut off mid-sentence.
+    maxTokens: Number(process.env.OPENROUTER_MAX_TOKENS || 900),
+    temperature: Number(process.env.OPENROUTER_TEMPERATURE || 0.3),
+    timeoutMs: Number(process.env.OPENROUTER_TIMEOUT_MS || 45000),
+    // Cap how much history the client may replay (token + abuse control).
+    maxHistory: 12,
+  },
+
+  /**
+   * Outbound mail for cold outreach. Gmail works with an App Password:
+   *   SMTP_HOST=smtp.gmail.com  SMTP_PORT=465  SMTP_SECURE=true
+   *   SMTP_USER=you@gmail.com   SMTP_PASS=<16-char app password>
+   *
+   * Leave user/pass blank and the whole outreach system still works end to end —
+   * it queues and schedules instead of sending, and the UI says "not connected"
+   * rather than pretending. Nothing here is ever logged.
+   */
+  mail: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: String(process.env.SMTP_SECURE || 'true') !== 'false',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    fromName: process.env.SMTP_FROM_NAME || 'Rampex',
+    replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER || '',
+
+    // Ceiling per rolling day across ALL campaigns. Gmail locks free accounts
+    // well before its documented limit, so the default stays conservative.
+    dailyCap: Number(process.env.OUTREACH_DAILY_CAP || 120),
+    // Minimum spacing between two sends, so a burst never looks like a blast.
+    minGapMs: Number(process.env.OUTREACH_MIN_GAP_MS || 20000),
+    // How often the scheduler drains the queue.
+    tickMs: Number(process.env.OUTREACH_TICK_MS || 60000),
+    // Retries before a recipient is marked FAILED.
+    maxAttempts: Number(process.env.OUTREACH_MAX_ATTEMPTS || 3),
+    // Base URL used to build unsubscribe + open-tracking links.
+    publicBaseUrl: process.env.PUBLIC_BASE_URL || 'http://localhost:5173',
+  },
 };
