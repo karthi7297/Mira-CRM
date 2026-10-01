@@ -422,14 +422,14 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
    section takes over with explicit 3 / 2 / 1 column tracks. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
   margin: 0 0 16px;
 }
 
 .card {
   min-width: 0;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -440,7 +440,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
 /* The big KPI figure — only direct children, so inline <b> stays inline */
 .card > b {
   display: block;
-  font-size: clamp(21px, 2.3vw, 28px);
+  font-size: clamp(19px, 1.9vw, 24px);
   font-weight: 700;
   letter-spacing: -0.024em;
   line-height: 1.08;
@@ -466,6 +466,39 @@ code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
   gap: 14px;
 }
 .grid2 + .grid2 { margin-top: 14px; }
+
+/* Compact KPI strip (org dashboard): dense top-accent stats instead of
+   oversized hero cards. auto-fit keeps it wrapping cleanly on narrow screens. */
+.cards.kpi-strip {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.card.kpi-compact { padding: 11px 14px 12px; }
+.kpi-title {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.card.kpi-compact .kpi-val {
+  display: block;
+  margin-top: 3px;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.kpi-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+.kpi-trend { font-size: 11px; font-weight: 700; margin-left: 8px; letter-spacing: 0; vertical-align: 2px; }
+.kpi-trend.up { color: var(--ok); }
+.kpi-trend.down { color: var(--bad); }
+
+/* Capped scroll lists keep dashboard rows a fixed height */
+.list.scroll { max-height: 300px; overflow: auto; }
 
 /* ---------- 7. Tables --------------------------------------------------- */
 table {
@@ -1071,133 +1104,6 @@ textarea { min-height: 84px; resize: vertical; }
 @keyframes sheetIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ---------- 17. Responsive ---------------------------------------------- */
-@media (max-width: 1240px) {
-  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 1080px) {
-  :root { --rail-w: 228px; }
-  .top { padding-inline: 22px; }
-  .body { padding: 22px 22px 64px; }
-  .login-brand { padding: 38px 36px; }
-}
-
-@media (max-width: 980px) {
-  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .grid2 { grid-template-columns: minmax(0, 1fr); }
-  .login { grid-template-columns: minmax(0, 1fr); }
-  .login-brand { padding: 30px 26px; }
-  .lb-body { margin-top: 26px; padding-bottom: 0; }
-  .lb-body h1 { max-width: 24ch; font-size: clamp(26px, 6vw, 34px); }
-  .lb-body > p { max-width: none; font-size: 13.5px; }
-  .lb-points { margin-top: 18px; }
-  .lb-foot { display: none; }
-  .login-panel { padding: 34px 24px 48px; }
-  .login-card { width: min(100%, 460px); }
-}
-
-/* --- Below 880px the rail becomes an off-canvas drawer --- */
-@media (max-width: 880px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
-
-  .side {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 90;
-    width: min(86vw, 306px);
-    height: 100%;
-    transform: translateX(-102%);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 70px -24px rgba(0, 0, 0, 0.55);
-    transition: transform 0.28s cubic-bezier(0.3, 0.8, 0.3, 1);
-  }
-  .nav-open .side { transform: none; }
-  .nav-open .scrim { opacity: 1; visibility: visible; }
-
-  .burger { display: grid; }
-  .crumb { display: none; }
-  .top-brand { display: flex; }
-  .top { padding-inline: 16px; gap: 10px; }
-  .body { padding: 18px 16px 64px; }
-
-  /* Tables scroll horizontally instead of squashing */
-  table {
-    display: block;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    white-space: nowrap;
-  }
-  thead th, tbody td { padding-inline: 12px; }
-  tbody td { white-space: nowrap; }
-}
-
-@media (max-width: 620px) {
-  :root { --top-h: 58px; }
-  .cards { gap: 10px; }
-  .card { padding: 14px; }
-  .card > b { font-size: 23px; }
-  .tu-name { display: none; }
-  .top-user { padding: 4px; }
-  .role { font-size: 9px; padding: 4px 8px; }
-  .page-head { gap: 10px; }
-  .form { grid-template-columns: minmax(0, 1fr); }
-  .search-input, .select-sm { flex: 1 1 100%; max-width: none; width: 100%; }
-  .toolbar > .btn { flex: 1 1 auto; }
-  .list-row > .chip:first-child { flex: 0 0 96px; }
-
-  /* Modals become bottom sheets */
-  .modal { padding: 0; align-items: flex-end; }
-  .modal > div {
-    width: 100%;
-    max-height: 88vh;
-    padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
-    animation: sheetIn 0.24s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-  }
-
-  .seg button { padding: 5px 10px; font-size: 11.5px; }
-
-  .login-brand { padding: 24px 20px; }
-  .login-panel { padding: 26px 18px 40px; }
-  .kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-
-  /* --- Mobile overflow fixes ------------------------------------------ */
-  /* Kanban boards: single-lane vertical stack with its own horizontal scroll
-     fallback, instead of pushing the whole page wide. */
-  .kanban-board {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow-x: visible;
-  }
-  .kanban-col { min-width: 0; width: 100%; }
-
-  /* Pages that stack filter rows with inline `display:flex` styles need wrap
-     and a floor of 0 so long selects/inputs can't force the page wider. */
-  .toolbar,
-  .tabs,
-  .hstack { flex-wrap: wrap; }
-  .toolbar > *, .hstack > * { min-width: 0; }
-
-  /* Inline-styled headers (Collections/Certificates page-heads) wrap and the
-     trailing button drops below the title instead of stretching the row. */
-  .page-head { flex-wrap: wrap; }
-  .page-head > * { min-width: 0; }
-
-  /* Date inputs + selects inside filter rows shrink to fit. */
-  select, input[type='date'] { max-width: 100%; }
-
-  /* Toasts take nearly the full width so long error text never overflows. */
-  .toasts { left: 12px; right: 12px; bottom: 84px; }
-  .toast { width: 100%; }
-}
-
-/* Only very narrow phones drop to a single KPI column — 2-up stays scannable */
-@media (max-width: 359px) {
-  .cards { grid-template-columns: minmax(0, 1fr); }
-}
 
 /* ---------- 18. Motion preferences -------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
@@ -1881,3 +1787,133 @@ tr.cm-row-on > td { background: var(--accent-soft); }
   .tscroll table { min-width: 580px; }
 }
 
+
+
+/* ---------- Responsive overrides (must stay LAST so they win over component base styles) ---------- */
+/* ---------- 17. Responsive ---------------------------------------------- */
+@media (max-width: 1240px) {
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1080px) {
+  :root { --rail-w: 228px; }
+  .top { padding-inline: 22px; }
+  .body { padding: 22px 22px 64px; }
+  .login-brand { padding: 38px 36px; }
+}
+
+@media (max-width: 980px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .login { grid-template-columns: minmax(0, 1fr); }
+  .login-brand { padding: 30px 26px; }
+  .lb-body { margin-top: 26px; padding-bottom: 0; }
+  .lb-body h1 { max-width: 24ch; font-size: clamp(26px, 6vw, 34px); }
+  .lb-body > p { max-width: none; font-size: 13.5px; }
+  .lb-points { margin-top: 18px; }
+  .lb-foot { display: none; }
+  .login-panel { padding: 34px 24px 48px; }
+  .login-card { width: min(100%, 460px); }
+}
+
+/* --- Below 880px the rail becomes an off-canvas drawer --- */
+@media (max-width: 880px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  .side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 90;
+    width: min(86vw, 306px);
+    height: 100%;
+    transform: translateX(-102%);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 70px -24px rgba(0, 0, 0, 0.55);
+    transition: transform 0.28s cubic-bezier(0.3, 0.8, 0.3, 1);
+  }
+  .nav-open .side { transform: none; }
+  .nav-open .scrim { opacity: 1; visibility: visible; }
+
+  .burger { display: grid; }
+  .crumb { display: none; }
+  .top-brand { display: flex; }
+  .top { padding-inline: 16px; gap: 10px; }
+  .body { padding: 18px 16px 64px; }
+
+  /* Tables scroll horizontally instead of squashing */
+  table {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  thead th, tbody td { padding-inline: 12px; }
+  tbody td { white-space: nowrap; }
+}
+
+@media (max-width: 620px) {
+  :root { --top-h: 58px; }
+  .cards { gap: 10px; }
+  .card { padding: 12px; }
+  .card > b { font-size: 20px; }
+  .tu-name { display: none; }
+  .top-user { padding: 4px; }
+  .role { font-size: 9px; padding: 4px 8px; }
+  .page-head { gap: 10px; }
+  .form { grid-template-columns: minmax(0, 1fr); }
+  .search-input, .select-sm { flex: 1 1 100%; max-width: none; width: 100%; }
+  .toolbar > .btn { flex: 1 1 auto; }
+  .list-row > .chip:first-child { flex: 0 0 96px; }
+
+  /* Modals become bottom sheets */
+  .modal { padding: 0; align-items: flex-end; }
+  .modal > div {
+    width: 100%;
+    max-height: 88vh;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    animation: sheetIn 0.24s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+
+  .seg button { padding: 5px 10px; font-size: 11.5px; }
+
+  .login-brand { padding: 24px 20px; }
+  .login-panel { padding: 26px 18px 40px; }
+  .kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+
+  /* --- Mobile overflow fixes ------------------------------------------ */
+  /* Kanban boards: single-lane vertical stack with its own horizontal scroll
+     fallback, instead of pushing the whole page wide. */
+  .kanban-board {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-x: visible;
+  }
+  .kanban-col { min-width: 0; width: 100%; }
+
+  /* Pages that stack filter rows with inline `display:flex` styles need wrap
+     and a floor of 0 so long selects/inputs can't force the page wider. */
+  .toolbar,
+  .tabs,
+  .hstack { flex-wrap: wrap; }
+  .toolbar > *, .hstack > * { min-width: 0; }
+
+  /* Inline-styled headers (Collections/Certificates page-heads) wrap and the
+     trailing button drops below the title instead of stretching the row. */
+  .page-head { flex-wrap: wrap; }
+  .page-head > * { min-width: 0; }
+
+  /* Date inputs + selects inside filter rows shrink to fit. */
+  select, input[type='date'] { max-width: 100%; }
+
+  /* Toasts take nearly the full width so long error text never overflows. */
+  .toasts { left: 12px; right: 12px; bottom: 84px; }
+  .toast { width: 100%; }
+}
+
+/* Only very narrow phones drop to a single KPI column — 2-up stays scannable */
+@media (max-width: 359px) {
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}

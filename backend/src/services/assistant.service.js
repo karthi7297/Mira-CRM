@@ -28,16 +28,16 @@ const ROLE_BRIEF = {
   organization: {
     title: 'Rampex administrator',
     scope: 'the entire platform, across every institution',
-    modules: 'Dashboard, Leads, Institutions, Programs, Trainers, Batches, Leave Approval, Quotations, Invoices, Payments, Collections, Certificates, Expenses, Reports',
-    can: 'run the whole pipeline: qualify and convert leads, set up programs/batches/trainers, raise quotations and invoices, record payments and expenses, chase collections, issue certificates, and approve trainer leave',
-    cannot: 'there is no Students module on this login — Rampex sees student counts and per-batch rosters as read-only aggregates, never a name-by-name roster screen, and cannot mark attendance',
+    modules: 'Dashboard, Leads, Institutions, Programs, Trainers, Trainer Detail, Batches, Students, Assessments, Attendance, Leave Approval, Quotations, Invoices, Payments, Collections, Certificates, Expenses, Reports',
+    can: 'run the whole pipeline and see everything: qualify and convert leads, set up programs/batches/trainers, manage students and enrollments, mark attendance, view per-student reports and interests, raise quotations and invoices, record payments and expenses, chase collections, issue certificates, and approve trainer leave',
+    cannot: 'nothing material — this login has full platform visibility and management access',
   },
   institution: {
     title: 'institution (college) administrator',
     scope: 'their own institution only — never any other college, and never platform-wide totals',
     modules: 'Dashboard, My College, Batches, Students, Attendance Details, Quotations, Invoices, Payments, Collections, Certificates',
     can: 'view and manage their own college: its batches, its students, attendance details, and its own billing/payments',
-    cannot: 'see other institutions, platform-wide figures, the lead pipeline, expenses, or reports; they cannot mark attendance or approve leave',
+    cannot: 'see other institutions, platform-wide figures, the lead pipeline, or expenses; they cannot mark attendance, enrol students, or approve leave',
   },
   trainer: {
     title: 'trainer',

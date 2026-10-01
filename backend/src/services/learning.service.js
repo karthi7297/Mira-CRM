@@ -1,8 +1,8 @@
 /**
  * Learning support (db-prd §3b): sessions (schedule), materials, interests,
  * assessments + scores, student report, top-students report.
- * Read rules: materials gated by batch visibility; interests readable ONLY by
- * assigned trainers + ORGANIZATION (institution → 403, enforced here not just UI).
+ * Read rules: materials gated by batch visibility; interests readable by
+ * assigned trainers, institutions (own students only) + ORGANIZATION.
  * Async facade throughout.
  */
 const db = require('../db');
@@ -69,7 +69,7 @@ async function createMaterial(body = {}, createdBy = null) {
   return db.get('SELECT * FROM materials WHERE id = ?', [id]);
 }
 
-// ---------- Interests (student shares; trainers + org read; institution 403) ----------
+// ---------- Interests (student shares; trainers + institutions (own) + org read) ----------
 async function listInterests(scope) {
   const base = `SELECT i.*, s.name AS student_name FROM interests i
     JOIN students s ON s.id = i.student_id`;
@@ -93,7 +93,17 @@ async function listInterests(scope) {
       sidList
     );
   }
-  throw forbidden('Not authorized — interests are visible only to trainers and Rampex');
+  if (scope.role === 'institution' && scope.customer_id) {
+    // Read-only: an institution sees interests shared by its own students.
+    const sids = await db.query('SELECT id AS student_id FROM students WHERE customer_id = ?', [scope.customer_id]);
+    const sidList = sids.map((r) => r.student_id);
+    if (!sidList.length) return [];
+    return db.query(
+      `${base} WHERE i.student_id IN (${sidList.map(() => '?').join(',')}) ORDER BY i.created_at DESC, i.id DESC`,
+      sidList
+    );
+  }
+  throw forbidden('Not authorized — interests are visible only to trainers, institutions (own students) and Rampex');
 }
 
 async function createInterest(scope, body = {}) {
@@ -193,6 +203,8 @@ async function saveScore(scope, body = {}) {
   });
   const score = Number(body.score);
   if (!Number.isFinite(score)) throw badRequest('score must be a number');
+  const maxScore = Number(asm.max_score) || 100;
+  if (score < 0 || score > maxScore) throw badRequest(`score must be between 0 and ${maxScore}`);
   await db.run(
     `INSERT INTO scores (assessment_id,student_id,score,marked_at) VALUES (?,?,?,datetime('now'))
      ON CONFLICT(assessment_id,student_id) DO UPDATE SET score = excluded.score, marked_at = datetime('now')`,
@@ -241,6 +253,138 @@ async function deleteScore(scope, assessmentId, studentId) {
   return { deleted: true };
 }
 
+// ---------- Per-assessment analytics report (PDF / Excel export) ----------
+/**
+ * Builds a rich per-assessment analytics payload: every student's mark, summary
+ * statistics (mean/median/spread/pass rate), a 5-band score distribution, top &
+ * bottom performers, below-threshold students needing remediation, and a
+ * batch-wide comparison. Read-scoped to the caller (Rampex sees all; a trainer
+ * only their assigned batch; an institution only its own customer's batch).
+ */
+async function assessmentReport(scope, assessmentId) {
+  const asm = await db.get('SELECT * FROM assessments WHERE id = ?', [assessmentId]);
+  if (!asm) throw notFound('Assessment not found');
+  if (scope.role !== 'organization') {
+    await assertCanManageBatch(scope, asm.batch_id, {
+      trainer: 'Only the assigned trainer can view this report',
+      other: 'Not authorized for this assessment',
+    });
+  }
+
+  const batch = await db.get(
+    `SELECT b.id, p.name AS program_name, t.name AS trainer_name, c.name AS customer_name,
+            (SELECT COUNT(*) FROM enrollments e WHERE e.batch_id = b.id) AS enrollment_total
+       FROM batches b
+       LEFT JOIN programs p ON p.id = b.program_id
+       LEFT JOIN trainers t ON t.id = b.trainer_id
+       LEFT JOIN customers c ON c.id = b.customer_id
+      WHERE b.id = ?`,
+    [asm.batch_id]
+  );
+
+  const scores = await db.query(
+    `SELECT s.student_id, st.name AS student_name, s.score, a.max_score
+       FROM scores s
+       JOIN assessments a ON a.id = s.assessment_id
+       JOIN students st ON st.id = s.student_id
+      WHERE s.assessment_id = ? ORDER BY (s.score * 1.0 / a.max_score) DESC, st.name`,
+    [assessmentId]
+  );
+
+  const maxScore = Number(asm.max_score) || 100;
+  const passThreshold = Math.round(maxScore * 0.5); // 50% of max = pass mark
+
+  const pcts = scores.map((x) => Math.round((Number(x.score) / maxScore) * 100));
+  const scoredCount = scores.length;
+  const totalEnrolled = Number(batch?.enrollment_total || 0);
+  const pendingCount = Math.max(0, totalEnrolled - scoredCount);
+
+  const mean = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+  const sorted = [...pcts].sort((a, b) => a - b);
+  let median = null;
+  if (sorted.length) {
+    const mid = Math.floor(sorted.length / 2);
+    median = sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+  }
+  const maxPct = sorted.length ? sorted[sorted.length - 1] : null;
+  const minPct = sorted.length ? sorted[0] : null;
+  const rangePct = (maxPct != null && minPct != null) ? maxPct - minPct : null;
+  let stddev = null;
+  if (pcts.length > 1) {
+    const variance = pcts.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / pcts.length;
+    stddev = Math.round(Math.sqrt(variance));
+  }
+
+  const passCount = pcts.filter((p) => p >= 50).length;
+  const failCount = scoredCount - passCount;
+  const passRate = scoredCount ? Math.round((passCount / scoredCount) * 100) : null;
+
+  const buckets = [
+    { label: '0–20%', lo: 0, hi: 20 },
+    { label: '20–40%', lo: 20, hi: 40 },
+    { label: '40–60%', lo: 40, hi: 60 },
+    { label: '60–80%', lo: 60, hi: 80 },
+    { label: '80–100%', lo: 80, hi: 101 },
+  ];
+  const distribution = buckets.map((b) => {
+    const count = pcts.filter((p) => p >= b.lo && p < b.hi).length;
+    return { ...b, count, pctOfScored: scoredCount ? Math.round((count / scoredCount) * 100) : 0 };
+  });
+
+  const topPerformers = scores.slice(0, 3).map((x) => ({
+    student_id: x.student_id, student_name: x.student_name,
+    pct: Math.round((Number(x.score) / maxScore) * 100),
+  }));
+  const bottomPerformers = scores.slice(-3).reverse().map((x) => ({
+    student_id: x.student_id, student_name: x.student_name,
+    pct: Math.round((Number(x.score) / maxScore) * 100),
+  }));
+  const weakStudents = scores
+    .filter((x) => Math.round((Number(x.score) / maxScore) * 100) < 50)
+    .map((x) => ({ student_id: x.student_id, student_name: x.student_name, pct: Math.round((Number(x.score) / maxScore) * 100) }));
+
+  const cmp = await db.get(
+    `SELECT AVG(s.score * 1.0 / a.max_score) * 100 AS v, COUNT(DISTINCT a.id) AS n
+       FROM scores s JOIN assessments a ON a.id = s.assessment_id
+      WHERE a.batch_id = ?`,
+    [asm.batch_id]
+  );
+  const batchAvgAll = cmp.v == null ? null : Math.round(Number(cmp.v));
+  const assessmentCountInBatch = Number(cmp.n || 0);
+  const delta = (mean != null && batchAvgAll != null) ? mean - batchAvgAll : null;
+
+  return {
+    assessment: {
+      id: asm.id, title: asm.title, batch_id: asm.batch_id,
+      max_score: maxScore, assessed_on: asm.assessed_on, pass_threshold: passThreshold,
+    },
+    batch: {
+      id: batch?.id || asm.batch_id,
+      program_name: batch?.program_name || '—',
+      trainer_name: batch?.trainer_name || '—',
+      customer_name: batch?.customer_name || '—',
+      enrollment_total: totalEnrolled,
+      assessment_count: assessmentCountInBatch,
+    },
+    scores: scores.map((x) => ({
+      student_id: x.student_id, student_name: x.student_name,
+      score: Number(x.score), max_score: maxScore,
+      pct: Math.round((Number(x.score) / maxScore) * 100),
+    })),
+    stats: {
+      scored_count: scoredCount, total_enrolled: totalEnrolled, pending_count: pendingCount,
+      mean_pct: mean, median_pct: median, max_pct: maxPct, min_pct: minPct,
+      range_pct: rangePct, stddev_pct: stddev,
+      pass_count: passCount, fail_count: failCount, pass_rate: passRate,
+    },
+    distribution,
+    top_performers: topPerformers,
+    bottom_performers: bottomPerformers,
+    weak_students: weakStudents,
+    batch_comparison: { this_avg: mean, batch_avg_all: batchAvgAll, delta },
+  };
+}
+
 // ---------- Student report (FLOW T: attendance + scores + interests) ----------
 /**
  * Per-student drill-down. Visible to the trainer who delivers the student's
@@ -264,8 +408,11 @@ async function studentReport(scope, studentId) {
   } else if (scope.role === 'trainer') {
     const canSeeAny = await Promise.all(batchIds.map((b) => canSeeBatch(db, scope, b)));
     if (!batchIds.length || !canSeeAny.some(Boolean)) throw forbidden('Not authorized');
-  } else {
-    throw forbidden('Student reports are visible to the assigned trainer or the student');
+  } else if (scope.role === 'institution') {
+    // Read-only: an institution may view reports of its own college's students.
+    if (!scope.customer_id || st.customer_id !== scope.customer_id) throw forbidden('Not authorized');
+  } else if (scope.role !== 'organization') {
+    throw forbidden('Student reports are visible to Rampex, the assigned trainer, the institution, or the student');
   }
 
   const interests = await db.query(
@@ -273,13 +420,29 @@ async function studentReport(scope, studentId) {
     [studentId]
   );
 
+  const attCounts = await db.get(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) AS present
+       FROM attendance WHERE student_id = ?`,
+    [studentId]
+  );
+  const assessmentRows = await db.query(
+    `SELECT a.title, s.score AS score, a.max_score, a.assessed_on
+       FROM scores s JOIN assessments a ON a.id = s.assessment_id
+      WHERE s.student_id = ? ORDER BY a.assessed_on DESC, a.id DESC`,
+    [studentId]
+  );
+
   return {
     ...st,
     attendance: await attendancePct(studentId),
+    attendance_present: Number(attCounts.present || 0),
+    attendance_total: Number(attCounts.total || 0),
     avg_score: await avgScore(studentId),
     weak_areas: await weakAreas(studentId),
     interests,
     batches: batchIds,
+    assessments: assessmentRows,
   };
 }
 
@@ -303,5 +466,5 @@ module.exports = {
   listInterests, createInterest, listAssessments, createAssessment,
   updateAssessment, deleteAssessment,
   listScores, saveScore, deleteScore,
-  studentReport, topStudentsReport,
+  studentReport, topStudentsReport, assessmentReport,
 };

@@ -367,8 +367,8 @@ export default function Layout({ children }) {
           </div>
 
           <div className="top-right">
-            <button type="button" className="kbd-hint" title="Search (Ctrl+K)" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
-              Search <kbd>Ctrl K</kbd>
+            <button type="button" className="kbd-hint" title="Search" onClick={() => window.dispatchEvent(new Event('toggle-palette'))}>
+              Search
             </button>
             <span className="role">{ROLE_LABEL[user?.role] || user?.role}</span>
             <span className="top-user">

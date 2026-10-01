@@ -116,7 +116,7 @@ function createApp() {
     ok(res, await leadsService.listLeads({ search: req.query.search || '', status: req.query.status || '' }))));
   app.get('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.getLead(req.params.id))));
-  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string' } }), asyncHandler(async (req, res) =>
+  app.post('/api/leads', requireOrg, validate({ body: { organization: 'string', contact_person: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await leadsService.createLead(req.body || {}))));
   app.patch('/api/leads/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await leadsService.updateLead(req.params.id, req.body || {}))));
@@ -142,8 +142,14 @@ function createApp() {
     ok(res, await trainingService.deleteProgram(req.params.id))));
   app.get('/api/trainers', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listTrainers())));
-app.post('/api/trainers', requireOrg, validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
+
+  // Trainer 360 for Rampex: profile + batches + students + payouts + leave.
+  app.get('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
+    ok(res, await trainingService.getTrainerDetail(req.params.id))));
+
+  app.post('/api/trainers', requireOrg, validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createTrainer(req.scope, req.body || {}))));
+
   app.patch('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.updateTrainer(req.params.id, req.body || {}))));
   app.delete('/api/trainers/:id', requireOrg, asyncHandler(async (req, res) =>
@@ -160,13 +166,13 @@ app.post('/api/trainers', requireOrg, validate({ body: { name: 'string' } }), as
     ok(res, await trainingService.updateBatch(req.scope, req.params.id, req.body || {}))));
   app.delete('/api/batches/:id', requireOrg, asyncHandler(async (req, res) =>
     ok(res, await trainingService.deleteBatch(req.params.id))));
-  // STUDENT MANAGEMENT IS THE TRAINER'S JOB (master-prd §3). A trainer owns a
-  // short personal roster, so name-by-name CRUD is the right granularity there.
-  // Rampex + institutions have hundreds of students and get aggregates only
-  // (dashboard, Customer 360) — writes are trainer-only and 403 everyone else.
+  // STUDENT MANAGEMENT: the assigned trainer delivers a batch's roster, the
+  // owning institution manages its own college, and Rampex (organization)
+  // manages platform-wide. Reads stay scoped; writes are trainer/institution/
+  // organization per the service guards.
   app.get('/api/students', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await trainingService.listStudents(req.scope, { batch_id: req.query.batch_id || '', search: req.query.search || '' }))));
-  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string' } }), asyncHandler(async (req, res) =>
+  app.post('/api/students', requireRole('trainer', 'institution', 'organization'), validate({ body: { name: 'string', email: '?email', phone: '?phone' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.createStudent(req.scope, req.body || {}))));
   app.post('/api/students/bulk', requireRole('trainer', 'institution', 'organization'), validate({ body: { students: 'array' } }), asyncHandler(async (req, res) =>
     ok(res, await trainingService.bulkCreateStudents(req.scope, req.body || {}))));
@@ -218,6 +224,8 @@ app.post('/api/trainers', requireOrg, validate({ body: { name: 'string' } }), as
     ok(res, await learningService.saveScore(req.scope, req.body || {}))));
   app.delete('/api/scores/:assessmentId/:studentId', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.deleteScore(req.scope, req.params.assessmentId, req.params.studentId))));
+  app.get('/api/assessments/:id/report', requireAuth, asyncHandler(async (req, res) =>
+    ok(res, await learningService.assessmentReport(req.scope, req.params.id))));
   app.get('/api/students/:id/report', requireAuth, asyncHandler(async (req, res) =>
     ok(res, await learningService.studentReport(req.scope, req.params.id))));
   app.get('/api/reports/top-students', requireAuth, asyncHandler(async (req, res) =>

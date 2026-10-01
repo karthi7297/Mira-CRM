@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api, inr, toast, toastError } from '../api';
+import { AttendanceBar } from '../widgets';
 import { useAuth } from '../auth';
 
 function filterInstitutionLeaves(leaves, customerId) {
@@ -68,10 +69,25 @@ export function Leads() {
   const load = () =>
     api.leads(`?search=${encodeURIComponent(q)}&status=${st === 'ALL' ? '' : st}`).then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => { load(); }, []);
+  // Filters apply automatically: changing the status reloads at once and
+  // typing searches live (debounced). The Filter button / Enter key still
+  // force a reload immediately. Skips the first run (mount already loaded).
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    const t = setTimeout(load, 350);
+    return () => clearTimeout(t);
+  }, [q, st]);
 
   const create = async (e) => {
     e.preventDefault();
     if (busy) return;
+    if (!String(f.organization || '').trim()) { setMsg('Organization is required'); return; }
+    if (!String(f.contact_person || '').trim()) { setMsg('Contact person is required'); return; }
+    const lEmail = String(f.email || '').trim();
+    if (lEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(lEmail)) { setMsg('Enter a valid email address'); return; }
+    const lPhone = String(f.phone || '').trim();
+    if (lPhone && !/^[+()\-.\s\d]{7,20}$/.test(lPhone)) { setMsg('Enter a valid phone number'); return; }
     setBusy(true);
     setMsg('');
     try {
@@ -600,8 +616,8 @@ export function Customer360({ fixedId }) {
                             <span style={{ color: '#94a3b8', fontSize: 13 }}>Not graded yet</span>
                           )}
                         </td>
-                        <td>
-                          <b>{s.sessions ? `${s.attendance}%` : '—'}</b>
+                        <td style={{ minWidth: 150 }}>
+                          {s.sessions ? <AttendanceBar value={s.attendance} width={120} /> : '—'}
                           <small style={{ display: 'block', color: '#94a3b8' }}>
                             {s.sessions} session{s.sessions === 1 ? '' : 's'}
                           </small>
